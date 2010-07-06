@@ -1,6 +1,14 @@
 This is a library to add basic structural pattern matching (as in ML,
 Prolog, Erlang, Haskell, etc.) to Lua.
 
+**Basic usage:**
+
+    require "tamale"
+    local V = tamale.var
+    
+    local m = tamale.matcher { {pat1, res1}, {pat2, res2}, ... }
+    m(pat2) --> res2
+
 For example, rather than writing a series of nested ifs to test
 for a structure such as { "point", {x=3, y=-0.8, z=1.4} }, you can just
 include the row
@@ -21,6 +29,11 @@ Finally, each variable can occur multiple times in the pattern. If the
 values assigned to the same variable do not match, it will fail. For
 example, { V"A", V"B", V"C", V"B" } would match both {1, 2, 3, 2} and
 {"x", "y", "z", "y"}. Variables whose names begin with _ are ignored.
+
+At the moment, the library uses *linear search* - While not terribly
+efficient for large / complex / highly redundant tables, it works well
+for prototyping. Sooner or later, I'll get around to making it compile
+to CPS-based decision trees.
 
 For further usage examples, see the test suite. Also, as this is a
 technique imported from other, more declarative, languages, its real
