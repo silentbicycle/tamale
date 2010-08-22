@@ -111,4 +111,19 @@ function test_kv_match_fail()
 end
 
 
+--Empty tables can also be used as sentinel values, so make it
+--possibly to force comparison by identity rather than structure.
+function test_match_IDs()
+   local a, b, c = {}, {}, {}
+
+   local m = tamale.matcher {
+      { {a, b, c}, "PASS" },
+      ids={a, b, c}
+   }
+   assert_equal("PASS", m {a, b, c})
+   -- (b and c are equal by structure but not identity)
+   assert_false(m {a, c, b})
+end
+
+
 lunatest.run()

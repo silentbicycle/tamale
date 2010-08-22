@@ -50,14 +50,16 @@ end
 
 
 ---Default hook for match failure.
+-- @param val The unmatched value.
 function match_fail(val)
    return false, "Match failed", val
 end
 
 
--- Try to match val against a pattern, setting variables in the
--- pattern to the corresponding values in val.
-local function unify(pat, val, env)
+-- Structurally match val against a pattern, setting variables in the
+-- pattern to the corresponding values in val, and recursively
+-- unifying table fields
+local function unify(pat, val, env, ids)
    local pt = type(pat)
    if pt == "table" then
       if is_var(pat) then
@@ -67,9 +69,12 @@ local function unify(pat, val, env)
          return env
       end
       if type(val) ~= "table" or #pat ~= #val then return false end
-      for k,v in pairs(pat) do
-         local u = unify(v, val[k], env)
-         if not u then return false end
+      if ids[pat] and pat ~= val then --compare by pointer equality
+         return false
+      else
+         for k,v in pairs(pat) do
+            if not unify(v, val[k], env, ids) then return false end
+         end
       end
       return env
    else                         --just compare as literals
@@ -86,16 +91,24 @@ end
 ---Return a matcher function for a given specification.
 --@param spec A list of rows, where each row is of the form
 --  { pattern, result, [where=capture_test_fun(cs)] }.<br>
---The spec can also have an optional .fail function to
---call when nothing matches. match_fail is used, by default.
+--@usage spec.fail: The spec can have an optional function to
+--  call when nothing matches. By default, match_fail is used.
+--@usage spec.ids: An optional list of table values that should be
+--  compared by identity, not structure. If any empty tables are
+--  being used as a sentinel value (e.g. "MAGIC_ID = {}"), list
+--  them here.
 function matcher(spec)
+   local ids = {}
+   if spec.ids then
+      for _,id in ipairs(spec.ids) do ids[id] = true end
+   end
    return
    function (t)
       -- This just searches linearly. It may be worth indexing,
       -- etc. to speed up the search later.
       for i,row in ipairs(spec) do
          local pat, res, where = row[1], row[2], row.where
-         local u = unify(pat, t, {})
+         local u = unify(pat, t, {}, ids)
          if u then
             u[1] = t         --whole matched value
             if where then

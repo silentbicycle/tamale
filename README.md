@@ -1,5 +1,4 @@
-This is a library to add basic structural pattern matching (as in ML,
-Prolog, Erlang, Haskell, etc.) to Lua.
+This is a Lua library to add basic structural pattern matching (as in ML, Prolog, Erlang, Haskell, etc.).
 
 **Basic usage:**
 
@@ -10,9 +9,9 @@ Prolog, Erlang, Haskell, etc.) to Lua.
     m(pat2) --> res2
 
 For example, rather than writing a series of nested ifs to test
-for a structure such as { "point", {x=3, y=-0.8, z=1.4} }, you can just
+for a structure such as { "point", x=3, y=-0.8, z=1.4 }, you can just
 include the row
-    { "point", {x=V"X", y=V"Y", z=V"Z"}, function_that_takes_captures }
+    { { "point", x=V"X", y=V"Y", z=V"Z" }, function_that_takes_captures }
 in a series of match declarations (where V is a local alias to
 *tamale.var*). The function would be passed a table with X, Y, and Z
 keys and the numbers. Also, the capture table always includes the entire
@@ -28,16 +27,23 @@ and valid_address checks if t.address is a valid e-mail address.
 Finally, each variable can occur multiple times in the pattern. If the
 values assigned to the same variable do not match, it will fail. For
 example, { V"A", V"B", V"C", V"B" } would match both {1, 2, 3, 2} and
-{"x", "y", "z", "y"}. Variables whose names begin with _ are ignored.
+{"x", "y", "z", "y"}, but not {1, 2, 3, 4} or {"x", "y", "z", "a"}.
+Variables whose names begin with _ are ignored.
 
-At the moment, the library uses *linear search* - While not terribly
-efficient for large / complex / highly redundant tables, it works well
-for prototyping. Sooner or later, I'll get around to making it compile
-to CPS-based decision trees.
+If you are using tables as identifiers (e.g., "MAGIC_ID = {}"), then
+add them to the optional ids={MAGIC_ID, ...} field on the match
+spec table. This causes them to be compared by identity rather than
+structure.
+
+Currently, the library uses *linear search* - While some redundant
+work occurs with highly repetitive tables, the overhead is still
+low. I tried compiling the match spec to CPS-based decision tries, but
+benchmarks showed very little improvement, and the compilation still
+occured at runtime. Given the added complexity, I just removed it.
 
 For further usage examples, see the test suite. Also, as this is a
 technique imported from other, more declarative, languages, its real
-potential may be learned quicker by studying them direcly.
+potential may be better understood by studying them direcly.
 
 Particularly recommended:
 
