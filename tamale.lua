@@ -40,6 +40,7 @@ local function ignore(key) return key:sub(1, 1) == "_" end
 
 
 ---Mark a string in a match pattern as a variable key.
+-- (You probably want to alias this locally to something short.)
 -- Any variables beginning with _ are ignored.
 -- @usage { "extract", {var"_", var"_", var"third", var"_" } }
 function var(name)
@@ -48,9 +49,9 @@ function var(name)
 end
 
 
----Default hook for match failure. Returns (false, "match failed", p).
-function match_fail(p)
-   return false, "Match failed", p
+---Default hook for match failure.
+function match_fail(val)
+   return false, "Match failed", val
 end
 
 
@@ -83,9 +84,15 @@ end
 
 
 ---Return a matcher function for a given specification.
+--@param spec A list of rows, where each row is of the form
+--  { pattern, result, [where=capture_test_fun(cs)] }.<br>
+--The spec can also have an optional .fail function to
+--call when nothing matches. match_fail is used, by default.
 function matcher(spec)
    return
    function (t)
+      -- This just searches linearly. It may be worth indexing,
+      -- etc. to speed up the search later.
       for i,row in ipairs(spec) do
          local pat, res, where = row[1], row[2], row.where
          local u = unify(pat, t, {})
@@ -99,7 +106,7 @@ function matcher(spec)
             end
          end
       end
-      local fail = spec.default or match_fail
+      local fail = spec.fail or match_fail
       return fail(t)
    end         
 end
