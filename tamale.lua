@@ -44,7 +44,7 @@ local function ignore(key) return key:sub(1, 1) == "_" end
 -- @usage { "extract", {var"_", var"_", var"third", var"_" } }
 function var(name)
    assert(type(name) == "string", "Variable must be string")
-   return setmetatable( { k=name }, VAR)
+   return setmetatable( { name=name, ignore=ignore(name) }, VAR)
 end
 
 
@@ -60,9 +60,9 @@ local function unify(pat, val, env)
    local pt = type(pat)
    if pt == "table" then
       if is_var(pat) then
-         local cur = env[pat.k]
-         if cur and cur ~= val and not ignore(pat.k) then return false end
-         env[pat.k] = val
+         local cur = env[pat.name]
+         if cur and cur ~= val and not pat.ignore then return false end
+         env[pat.name] = val
          return env
       end
       if type(val) ~= "table" or #pat ~= #val then return false end
