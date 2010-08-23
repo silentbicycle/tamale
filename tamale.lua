@@ -35,7 +35,6 @@ module("tamale")
 
 local VAR = {}
 local function is_var(t) return getmetatable(t) == VAR end
-local function is_func(f) return type(f) == "function" end
 local function ignore(key) return key:sub(1, 1) == "_" end
 
 
@@ -58,7 +57,7 @@ end
 
 -- Structurally match val against a pattern, setting variables in the
 -- pattern to the corresponding values in val, and recursively
--- unifying table fields
+-- unifying table fields.
 local function unify(pat, val, env, ids)
    local pt = type(pat)
    if pt == "table" then
@@ -84,7 +83,7 @@ end
 
 
 local function do_res(res, u)
-   if is_func(res) then return res(u) else return res, u end
+   if type(res) == "function" then return res(u) else return res, u end
 end
 
 
