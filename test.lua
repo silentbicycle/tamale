@@ -5,7 +5,7 @@ local V = tamale.var
 
 local M
 
-function setup(x)
+function setup(name)
    M = tamale.matcher {
       { 27, "twenty-seven" },
       { "str", "string" },
@@ -18,10 +18,9 @@ function setup(x)
       { { "a", {"b", V"X" }, "c", V"X"},
         function(t) return "X is " .. t.X end },
       { { "extract", { V"_", V"_", V"third", V"_" } },
-        function(t) return t.third end },
+        function(t) return t.third end }
    }
 end
-
 
 function test_m()
    assert_true(M)
@@ -88,10 +87,12 @@ function test_dont_care()
 end
 
 function test_match_any()
-   local m = tamale.matcher { { V"_", function(t) return t end } }
-   assert_true(m "any string")
-   assert_true(m(4))
-   assert_true(m {"x", "y", "z"})
+   local m = tamale.matcher {
+      { V"_", function(t) return t end }
+   }
+   assert_true(m "any string", "match any string")
+   assert_true(m(4), "match a number")
+   assert_true(m {"x", "y", "z"}, "match a table")
 end
 
 

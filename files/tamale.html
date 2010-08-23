@@ -141,7 +141,7 @@ Return a matcher function for a given specification.
 <ul>
 	
 	<li>
-	  spec: A list of rows, where each row is of the form { pattern, result, [where=capture_test_fun(cs)] }.<br>
+	  spec: A list of rows, where each row is of the form { pattern, result, [where=capture_test_fun(cs)] }. Each table pattern is indexed by pattern[1].
 	</li>
 	
 </ul>
@@ -155,6 +155,8 @@ Return a matcher function for a given specification.
 	<li>spec.fail: The spec can have an optional function to call when nothing matches. By default, match_fail is used.
 	
 	<li>spec.ids: An optional list of table values that should be compared by identity, not structure. If any empty tables are being used as a sentinel value (e.g. "MAGIC_ID = {}"), list them here.
+	
+	<li>spec.debug: Turn on debugging traces for the matcher.
 	
 </ul>
 

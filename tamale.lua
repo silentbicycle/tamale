@@ -27,15 +27,23 @@ OTHER DEALINGS IN THE SOFTWARE.
 -- Depenedencies
 local assert, getmetatable, ipairs, pairs, pcall, setmetatable, type =
    assert, getmetatable, ipairs, pairs, pcall, setmetatable, type
+local concat, insert = table.concat, table.insert
+
+local function trace(...) print(string.format(...)) end
 
 
 ---TAble-MAtching Lua Extension.
 module("tamale")
 
 
-local VAR = {}
+DEBUG = false                   --Set to true to enable traces.
+
+local function sentinel(descr)
+   return setmetatable({}, { __tostring=function() return descr end })
+end
+
+local VAR, NIL = sentinel("[var]"), sentinel("[nil]")
 local function is_var(t) return getmetatable(t) == VAR end
-local function ignore(key) return key:sub(1, 1) == "_" end
 
 
 ---Mark a string in a match pattern as a variable key.
@@ -44,7 +52,8 @@ local function ignore(key) return key:sub(1, 1) == "_" end
 -- @usage { "extract", {var"_", var"_", var"third", var"_" } }
 function var(name)
    assert(type(name) == "string", "Variable must be string")
-   return setmetatable( { name=name, ignore=ignore(name) }, VAR)
+   local ignore = (name:sub(1, 1) == "_")
+   return setmetatable( { name=name, ignore=ignore }, VAR)
 end
 
 
@@ -87,37 +96,111 @@ local function do_res(res, u)
 end
 
 
+local function append(t, key, val)
+   local arr = t[key] or {}
+   arr[#arr+1] = val; t[key] = arr
+end
+
+
+-- If the list of row IDs didn't exist when the var row was
+-- indexed (and thus didn't get added), add it here.
+local function prepend_vars(vars, lists)
+   for _,vid in ipairs(vars) do
+      for k,l in pairs(lists) do
+         if l[1] > vid then insert(l, 1, vid) end
+      end
+   end
+end
+
+
+-- Index each literal pattern and pattern table's first value (t[1]). 
+-- Also, add insert patterns with vars in the appropriate place(s). 
+local function index_spec(spec)
+   local ls, ts = {}, {}        --literals and tables
+   local lvs, tvs = {}, {}      --vars
+
+   for id, row in ipairs(spec) do
+      local pat = row[1]
+      if is_var(pat) then       --match anything
+         lvs[#lvs+1] = id; tvs[#tvs+1] = id
+      elseif type(pat) == "table" then
+         local v = pat[1] or NIL
+         if is_var(v) then    --vars go in every index
+            for k in pairs(ts) do append(ts, k, id) end
+            tvs[#tvs+1] = id
+         else
+            append(ts, v, id)
+         end
+      else
+         append(ls, pat, id)
+      end
+   end
+
+   prepend_vars(lvs, ls); prepend_vars(tvs, ts)
+   ls[VAR] = lvs; ts[VAR] = tvs
+   return ls, ts
+end
+
+
+-- Get the appropriate list of rows to check (if any).
+local function check_index(spec, t, ls, ts)
+   if type(t) == "table" then
+      local key = t[1] or NIL
+      return ts[key] or ts[VAR]
+   else
+      return ls[t] or ls[VAR]
+   end
+end
+
+
 ---Return a matcher function for a given specification.
 --@param spec A list of rows, where each row is of the form
---  { pattern, result, [where=capture_test_fun(cs)] }.<br>
+--  { pattern, result, [where=capture_test_fun(cs)] }. Each
+--  table pattern is indexed by pattern[1].
 --@usage spec.fail: The spec can have an optional function to
 --  call when nothing matches. By default, match_fail is used.
 --@usage spec.ids: An optional list of table values that should be
 --  compared by identity, not structure. If any empty tables are
 --  being used as a sentinel value (e.g. "MAGIC_ID = {}"), list
 --  them here.
+--@usage spec.debug: Turn on debugging traces for the matcher.
 function matcher(spec)
+   local debug = spec.debug or DEBUG
    local ids = {}
    if spec.ids then
       for _,id in ipairs(spec.ids) do ids[id] = true end
    end
+
+   local ls, ts = index_spec(spec)
+
    return
    function (t)
-      -- This just searches linearly. It may be worth indexing,
-      -- etc. to speed up the search later.
-      for i,row in ipairs(spec) do
+      local rows = check_index(spec, t, ls, ts)
+      if debug then trace(" -- Checking rows: %s", concat(rows, ", ")) end
+
+      for _,id in ipairs(rows) do
+         local row = spec[id]
          local pat, res, where = row[1], row[2], row.where
+
          local u = unify(pat, t, {}, ids)
+         if debug then
+            trace("-- Trying row %d...%s", id, u and "matched" or "failed")
+         end
+         
          if u then
             u[1] = t         --whole matched value
             if where then
                local ok, val = pcall(where, u)
+               if debug then trace("-- Running where(captures) check...%s",
+                                   ok and "matched" or "failed")
+               end
                if ok and val then return do_res(res, u) end
             else
                return do_res(res, u)
             end
          end
       end
+      if debug then trace("-- Failed") end
       local fail = spec.fail or match_fail
       return fail(t)
    end         
