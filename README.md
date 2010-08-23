@@ -35,11 +35,14 @@ add them to the optional ids={MAGIC_ID, ...} field on the match
 spec table. This causes them to be compared by identity rather than
 structure.
 
-Currently, the library uses *linear search* - While some redundant
-work occurs with highly repetitive tables, the overhead is still
-low. I tried compiling the match spec to CPS-based decision tries, but
-benchmarks showed very little improvement, and the compilation still
-occured at runtime. Given the added complexity, I just removed it.
+Currently, the library uses *linear search*, with indexing by tables
+patterns' first values (i.e., p[1]) and whole non-table patterns. While
+some redundant work occurs with highly repetitive tables, the overhead
+is still low. I tried compiling the match spec to CPS-based decision
+tries, but benchmarks showed very little improvement (and the
+compilation still occured at runtime). Given the added complexity, I
+just removed it. Just one step of indexing generally speeds things up by
+a factor of two or more, however.
 
 For further usage examples, see the test suite. Also, as this is a
 technique imported from other, more declarative, languages, its real
