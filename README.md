@@ -15,7 +15,8 @@ include the row
 in a series of match declarations (where V is a local alias to
 *tamale.var*). The function would be passed a table with X, Y, and Z
 keys and the numbers. Also, the capture table always includes the entire
-matched pattern as t[1].
+matched pattern as t[1]. If the result is a literal table, any variables
+in it will be replaced by their captures.
 
 Each row can have an optional keyword argument of *where*=*f(cs)*. This
 passes the captures to a function which returns whether those captures
