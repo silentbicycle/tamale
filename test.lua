@@ -127,4 +127,16 @@ function test_match_IDs()
 end
 
 
+--Result tables with variables in them should have their captures substituted.
+function test_substitution()
+   local m = tamale.matcher {
+      { {x=V"x", y=V"y" }, {y=V"x", z=V"y" } }
+   }
+
+   local res = m {x=10, y=20}
+   assert_equal(10, res.y)
+   assert_equal(20, res.z)
+end
+
+
 lunatest.run()

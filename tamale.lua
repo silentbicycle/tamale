@@ -91,8 +91,29 @@ local function unify(pat, val, env, ids)
 end
 
 
-local function do_res(res, u)
-   if type(res) == "function" then return res(u) else return res, u end
+-- Replace any variables in the result with their captures.
+local function substituted(res, u)
+   local r = {}
+   for k,v in pairs(res) do
+      if type(v) == "table" then
+         if is_var(v) then r[k] = u[v.name] else r[k] = substituted(v, u) end
+      else
+         r[k] = v
+      end
+   end
+   return r
+end
+
+
+-- Return (or execute) the result, substituting any vars present.
+local function do_res(res, u, has_vars)
+   local t = type(res)
+   if t == "function" then
+      return res(u)
+   elseif t == "table" and has_vars then
+      return substituted(res, u), u
+   end
+   return res, u
 end
 
 
@@ -113,14 +134,26 @@ local function prepend_vars(vars, lists)
 end
 
 
+local function has_vars(res)
+   if type(res) ~= "table" then return false end
+   for k,v in pairs(res) do
+      if type(v) == "table" then
+         if is_var(v) or has_vars(v) then return true end
+      end
+   end
+   return false
+end
+
+
 -- Index each literal pattern and pattern table's first value (t[1]). 
 -- Also, add insert patterns with vars in the appropriate place(s). 
 local function index_spec(spec)
    local ls, ts = {}, {}        --literals and tables
    local lvs, tvs = {}, {}      --vars
+   local vrs = {}               --rows with vars in the result
 
    for id, row in ipairs(spec) do
-      local pat = row[1]
+      local pat, res = row[1], row[2]
       if is_var(pat) then       --match anything
          lvs[#lvs+1] = id; tvs[#tvs+1] = id
       elseif type(pat) == "table" then
@@ -134,11 +167,13 @@ local function index_spec(spec)
       else
          append(ls, pat, id)
       end
+
+      if has_vars(res) then vrs[id] = true end
    end
 
    prepend_vars(lvs, ls); prepend_vars(tvs, ts)
    ls[VAR] = lvs; ts[VAR] = tvs
-   return ls, ts
+   return ls, ts, vrs
 end
 
 
@@ -171,7 +206,7 @@ function matcher(spec)
       for _,id in ipairs(spec.ids) do ids[id] = true end
    end
 
-   local ls, ts = index_spec(spec)
+   local ls, ts, vrs = index_spec(spec)
 
    return
    function (t)
@@ -194,9 +229,11 @@ function matcher(spec)
                if debug then trace("-- Running where(captures) check...%s",
                                    ok and "matched" or "failed")
                end
-               if ok and val then return do_res(res, u) end
+               if ok and val then
+                  return do_res(res, u, vrs[id])
+               end
             else
-               return do_res(res, u)
+               return do_res(res, u, vrs[id])
             end
          end
       end
