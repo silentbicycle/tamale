@@ -139,4 +139,26 @@ function test_substitution()
 end
 
 
+function test_substitution_var_only()
+   local m = tamale.matcher {
+      { V"all", V"all" }
+   }
+
+   for i=1,10 do assert_equal(i, m(i)) end 
+   for i in ("bananas"):gmatch(".") do assert_equal(i, m(i)) end 
+end
+
+
+function test_substitution_boxing()
+   local m = tamale.matcher {
+      { V"all", { V"all" } }
+   }
+
+   for i=1,10 do
+      local res = m(i)
+      assert_equal(i, res[1])
+   end 
+end
+
+
 lunatest.run()

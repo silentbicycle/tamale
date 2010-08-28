@@ -94,6 +94,7 @@ end
 -- Replace any variables in the result with their captures.
 local function substituted(res, u)
    local r = {}
+   if is_var(res) then return u[res.name] end
    for k,v in pairs(res) do
       if type(v) == "table" then
          if is_var(v) then r[k] = u[v.name] else r[k] = substituted(v, u) end
@@ -136,6 +137,7 @@ end
 
 local function has_vars(res)
    if type(res) ~= "table" then return false end
+   if is_var(res) then return true end
    for k,v in pairs(res) do
       if type(v) == "table" then
          if is_var(v) or has_vars(v) then return true end
