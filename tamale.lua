@@ -211,15 +211,16 @@ function matcher(spec)
    local ls, ts, vrs = index_spec(spec)
 
    return
-   function (t)
+   function (t, ...)
       local rows = check_index(spec, t, ls, ts)
       if debug then trace(" -- Checking rows: %s", concat(rows, ", ")) end
 
       for _,id in ipairs(rows) do
          local row = spec[id]
          local pat, res, where = row[1], row[2], row.where
+         local args = { ... }
 
-         local u = unify(pat, t, {}, ids)
+         local u = unify(pat, t, { args=args }, ids)
          if debug then
             trace("-- Trying row %d...%s", id, u and "matched" or "failed")
          end

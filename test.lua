@@ -161,4 +161,23 @@ function test_substitution_boxing()
 end
 
 
+-- Any extra arguments to the matcher are collected in captures.args.
+function test_extra_matcher_arg()
+   local m = tamale.matcher {
+      { "sum", function(cap)
+                  local total = 0
+                  for i,v in ipairs(cap.args) do total = total + v end
+                  return total
+               end },
+      { "sumlen", function(cap)
+                     local total = 0
+                     for i,v in ipairs(cap.args) do total = total + #v end
+                     return total
+                  end }
+   }
+   assert_equal(10, m("sum", 1, 2, 3, 4))
+   assert_equal(15, m("sum", 1, 2, 3, 4, 5))
+   assert_equal(10, m("sumlen", "a", "ao", "aoe", "aoeu"))
+end
+
 lunatest.run()
