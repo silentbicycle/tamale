@@ -13,7 +13,7 @@ function setup(name)
         function(t) return "one two three" end },
       { { 1, {2, "three"}, 4}, function(t) return "success" end },
       { { "gt3", V"X"}, function(t) return 10 * t.X end,
-        where=function (t) return t.X > 3 end },
+        when=function (t) return t.X > 3 end },
       { { V"a", V"b", V"c", V"b" }, function(t) return "ABCB" end },
       { { "a", {"b", V"X" }, "c", V"X"},
         function(t) return "X is " .. t.X end },

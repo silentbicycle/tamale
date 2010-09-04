@@ -192,7 +192,7 @@ end
 
 ---Return a matcher function for a given specification.
 --@param spec A list of rows, where each row is of the form
---  { pattern, result, [where=capture_test_fun(cs)] }. Each
+--  { pattern, result, [when=capture_test_fun(cs)] }. Each
 --  table pattern is indexed by pattern[1].
 --@usage spec.fail: The spec can have an optional function to
 --  call when nothing matches. By default, match_fail is used.
@@ -217,7 +217,7 @@ function matcher(spec)
 
       for _,id in ipairs(rows) do
          local row = spec[id]
-         local pat, res, where = row[1], row[2], row.where
+         local pat, res, when = row[1], row[2], row.when
          local args = { ... }
 
          local u = unify(pat, t, { args=args }, ids)
@@ -227,9 +227,9 @@ function matcher(spec)
          
          if u then
             u[1] = t         --whole matched value
-            if where then
-               local ok, val = pcall(where, u)
-               if debug then trace("-- Running where(captures) check...%s",
+            if when then
+               local ok, val = pcall(when, u)
+               if debug then trace("-- Running when(captures) check...%s",
                                    ok and "matched" or "failed")
                end
                if ok and val then
