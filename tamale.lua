@@ -27,10 +27,11 @@ OTHER DEALINGS IN THE SOFTWARE.
 -- Depenedencies
 local assert, getmetatable, ipairs, pairs, pcall, setmetatable, type =
    assert, getmetatable, ipairs, pairs, pcall, setmetatable, type
-local concat, insert = table.concat, table.insert
+local tostring, print = tostring, print
+local concat, insert, sort = table.concat, table.insert, table.sort
 
 local function trace(...) print(string.format(...)) end
-
+local dump = my.dump
 
 ---TAble-MAtching Lua Extension.
 module("tamale")
@@ -68,7 +69,7 @@ end
 -- pattern to the corresponding values in val, and recursively
 -- unifying table fields.
 local function unify(pat, val, env, ids)
-   local pt = type(pat)
+   local pt, vt = type(pat), type(val)
    if pt == "table" then
       if is_var(pat) then
          local cur = env[pat.name]
@@ -84,6 +85,11 @@ local function unify(pat, val, env, ids)
             if not unify(v, val[k], env, ids) then return false end
          end
       end
+      return env
+   elseif vt == "string" then
+      local cs = { val:match(pat) }
+      if #cs == 0 then return false end
+      for _,c in ipairs(cs) do env[#env+1] = c end
       return env
    else                         --just compare as literals
       return pat == val and env or false
@@ -124,17 +130,6 @@ local function append(t, key, val)
 end
 
 
--- If the list of row IDs didn't exist when the var row was
--- indexed (and thus didn't get added), add it here.
-local function prepend_vars(vars, lists)
-   for _,vid in ipairs(vars) do
-      for k,l in pairs(lists) do
-         if l[1] > vid then insert(l, 1, vid) end
-      end
-   end
-end
-
-
 local function has_vars(res)
    if type(res) ~= "table" then return false end
    if is_var(res) then return true end
@@ -147,24 +142,46 @@ local function has_vars(res)
 end
 
 
+-- If the list of row IDs didn't exist when the var row was
+-- indexed (and thus didn't get added), add it here.
+local function prepend_vars(vars, lists)
+   for i=#vars,1,-1 do
+      for k,l in pairs(lists) do
+         local vid = vars[i]
+         if l[1] > vid then insert(l, 1, vid) end
+      end
+   end
+end
+
+
 -- Index each literal pattern and pattern table's first value (t[1]). 
 -- Also, add insert patterns with vars in the appropriate place(s). 
 local function index_spec(spec)
    local ls, ts = {}, {}        --literals and tables
-   local lvs, tvs = {}, {}      --vars
+   local ss, tss = {}, {}       --same, with string
+   local lvs, tvs, sps = {}, {}, {}  --vars, table vars, str patterns
    local vrs = {}               --rows with vars in the result
 
    for id, row in ipairs(spec) do
       local pat, res = row[1], row[2]
+      local pt = type(pat)
       if is_var(pat) then       --match anything
-         lvs[#lvs+1] = id; tvs[#tvs+1] = id
-      elseif type(pat) == "table" then
+         lvs[#lvs+1] = id; tvs[#tvs+1] = id; sps[#sps+1] = id
+      elseif pt == "table" then
          local v = pat[1] or NIL
          if is_var(v) then    --vars go in every index
             for k in pairs(ts) do append(ts, k, id) end
             tvs[#tvs+1] = id
          else
             append(ts, v, id)
+         end
+      elseif pt == "string" then
+         append(ss, pat, id)
+         if pat:match("%%") then
+            for k in pairs(ss) do
+               if k ~= pat then append(ss, k, id) end
+            end
+            sps[#sps+1] = id
          end
       else
          append(ls, pat, id)
@@ -173,18 +190,24 @@ local function index_spec(spec)
       if has_vars(res) then vrs[id] = true end
    end
 
-   prepend_vars(lvs, ls); prepend_vars(tvs, ts)
-   ls[VAR] = lvs; ts[VAR] = tvs
-   return { ls=ls, ts=ts, vrs=vrs }
+   prepend_vars(lvs, ls)
+   prepend_vars(lvs, ss); prepend_vars(sps, ss)
+   prepend_vars(tvs, ts)
+   ls[VAR] = lvs; ss[VAR] = sps; ts[VAR] = tvs
+   return { ls=ls, ss=ss, ts=ts, vrs=vrs }
 end
 
 
 -- Get the appropriate list of rows to check (if any).
 local function check_index(spec, t, idx)
-   if type(t) == "table" then
+   local tt = type(t)
+   if tt == "table" then
       local key = t[1] or NIL
       local ts = idx.ts
       return ts[key] or ts[VAR]
+   elseif tt == "string" then
+      local ss = idx.ss
+      return ss[t] or ss[VAR]
    else
       local ls = idx.ls
       return ls[t] or ls[VAR]
@@ -211,12 +234,16 @@ function matcher(spec)
    end
 
    local idx = index_spec(spec)
+   --if debug then dump(idx) end
    local vrs = idx.vrs          --variable rows
 
    return
    function (t, ...)
       local rows = check_index(spec, t, idx)
-      if debug then trace(" -- Checking rows: %s", concat(rows, ", ")) end
+      if debug then
+         trace(" -- T is %s", tostring(t))
+         trace(" -- Checking rows: %s", concat(rows, ", "))
+      end
 
       for _,id in ipairs(rows) do
          local row = spec[id]
@@ -229,7 +256,7 @@ function matcher(spec)
          end
          
          if u then
-            u[1] = t         --whole matched value
+            u.value = t         --whole matched value
             if when then
                local ok, val = pcall(when, u)
                if debug then trace("-- Running when(captures) check...%s",

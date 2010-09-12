@@ -193,4 +193,19 @@ function test_match_order()
    assert_equal(3, m"w")
 end
 
+function test_str_pattern()
+   local m = tamale.matcher {
+      { "foo %d+", 1 },
+      { "foo %a+", 2 },
+      { "foo", 3 },
+      { "bar", 4 },
+      --debug=true
+   }
+   assert_equal(1, m"foo 23")
+   assert_equal(2, m"foo bar")
+   assert_equal(3, m"foo")
+   assert_equal(4, m"bar")
+end
+
+
 lunatest.run()
