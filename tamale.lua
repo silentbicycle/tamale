@@ -127,8 +127,9 @@ end
 -- If the list of row IDs didn't exist when the var row was
 -- indexed (and thus didn't get added), add it here.
 local function prepend_vars(vars, lists)
-   for _,vid in ipairs(vars) do
+   for i=#vars,1,-1 do
       for k,l in pairs(lists) do
+         local vid = vars[i]
          if l[1] > vid then insert(l, 1, vid) end
       end
    end
