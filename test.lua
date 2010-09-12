@@ -195,17 +195,28 @@ end
 
 function test_str_pattern()
    local m = tamale.matcher {
-      { "foo %d+", 1 },
-      { "foo %a+", 2 },
+      { "foo (%d+)", function(t) return tonumber(t[1]) end },
+      { "foo (%a+)", function(t) return t[1] end },
       { "foo", 3 },
       { "bar", 4 },
-      --debug=true
    }
-   assert_equal(1, m"foo 23")
-   assert_equal(2, m"foo bar")
+   assert_equal(23, m"foo 23")
+   assert_equal("bar", m"foo bar")
    assert_equal(3, m"foo")
    assert_equal(4, m"bar")
 end
 
+function test_table_str_pattern()
+   local m = tamale.matcher {
+      { {"foo (%d+)"}, function(t) return tonumber(t[1]) end },
+      { {"foo (%a+)"}, function(t) return t[1] end },
+      { {"foo"}, 3 },
+      { {"bar"}, 4 },
+   }
+   assert_equal(23, m{"foo 23"})
+   assert_equal("bar", m{"foo bar"})
+   assert_equal(3, m{"foo"})
+   assert_equal(4, m{"bar"})
+end
 
 lunatest.run()
