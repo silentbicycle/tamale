@@ -196,7 +196,10 @@ end
 function test_str_pattern()
    local m = tamale.matcher {
       { "foo (%d+)", function(t) return tonumber(t[1]) end },
-      { "foo (%a+)", function(t) return t[1] end },
+      { "foo (%a+)$", function(t) return t[1] end },
+      { "foo (%a+) (%d+) (%a+)",
+        function(t) return t[1] .. tostring(t[2]) .. t[3] end
+      },
       { "foo", 3 },
       { "bar", 4 },
    }
@@ -209,12 +212,16 @@ end
 function test_table_str_pattern()
    local m = tamale.matcher {
       { {"foo (%d+)"}, function(t) return tonumber(t[1]) end },
-      { {"foo (%a+)"}, function(t) return t[1] end },
+      { {"foo (%a+)$"}, function(t) return t[1] end },
+      { {"foo (%a+) (%d+) (%a+)"},
+        function(t) return t[1] .. tostring(t[2]) .. t[3] end
+      },
       { {"foo"}, 3 },
       { {"bar"}, 4 },
    }
    assert_equal(23, m{"foo 23"})
    assert_equal("bar", m{"foo bar"})
+   assert_equal("bar23baz", m{"foo bar 23 baz"})
    assert_equal(3, m{"foo"})
    assert_equal(4, m{"bar"})
 end

@@ -153,7 +153,7 @@ local function prepend_vars(vars, lists)
 end
 
 
-local function is_pattern(s) return s:match("%%") end
+local function is_pattern(s) return s:match("[][^$()%.*+-?]") end
 
 
 -- Index each literal pattern and pattern table's first value (t[1]). 
