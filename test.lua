@@ -180,4 +180,17 @@ function test_extra_matcher_arg()
    assert_equal(10, m("sumlen", "a", "ao", "aoe", "aoeu"))
 end
 
+function test_match_order()
+   local m = tamale.matcher {
+      { "x", 1 },
+      { "y", 2 },
+      { V"x", 3 },
+      { "z", 4 },
+   }
+   assert_equal(1, m"x")
+   assert_equal(2, m"y")
+   assert_equal(3, m"z")        --should be shadowed by V"x"
+   assert_equal(3, m"w")
+end
+
 lunatest.run()
