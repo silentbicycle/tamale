@@ -175,16 +175,18 @@ local function index_spec(spec)
 
    prepend_vars(lvs, ls); prepend_vars(tvs, ts)
    ls[VAR] = lvs; ts[VAR] = tvs
-   return ls, ts, vrs
+   return { ls=ls, ts=ts, vrs=vrs }
 end
 
 
 -- Get the appropriate list of rows to check (if any).
-local function check_index(spec, t, ls, ts)
+local function check_index(spec, t, idx)
    if type(t) == "table" then
       local key = t[1] or NIL
+      local ts = idx.ts
       return ts[key] or ts[VAR]
    else
+      local ls = idx.ls
       return ls[t] or ls[VAR]
    end
 end
@@ -208,11 +210,12 @@ function matcher(spec)
       for _,id in ipairs(spec.ids) do ids[id] = true end
    end
 
-   local ls, ts, vrs = index_spec(spec)
+   local idx = index_spec(spec)
+   local vrs = idx.vrs          --variable rows
 
    return
    function (t, ...)
-      local rows = check_index(spec, t, ls, ts)
+      local rows = check_index(spec, t, idx)
       if debug then trace(" -- Checking rows: %s", concat(rows, ", ")) end
 
       for _,id in ipairs(rows) do
