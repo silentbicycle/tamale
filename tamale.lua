@@ -63,6 +63,22 @@ function match_fail(val)
 end
 
 
+-- Key-weak cache for table counts, since #t only gives the
+-- length of the array portion, and otherwise, values with extra
+-- non-numeric keys can match rows that do not have them.
+local counts = setmetatable({}, { __mode="k"})
+
+local function get_count(t)
+   local v = counts[t]
+   if not v then
+      v = 0
+      for k in pairs(t) do v = v + 1 end
+      counts[t] = v
+   end
+   return v
+end
+
+
 -- Structurally match val against a pattern, setting variables in the
 -- pattern to the corresponding values in val, and recursively
 -- unifying table fields. String patterns are matched against value
@@ -76,7 +92,8 @@ local function unify(pat, val, env, ids, has_pattern)
          env[pat.name] = val
          return env
       end
-      if type(val) ~= "table" or #pat ~= #val then return false end
+      local ct = get_count(pat)
+      if type(val) ~= "table" or ct ~= get_count(val) then return false end
       if ids[pat] and pat ~= val then --compare by pointer equality
          return false
       else
@@ -153,19 +170,21 @@ local function prepend_vars(vars, lists)
 end
 
 
+-- Does a string contain any "magic" pattern chars?
 local function is_pattern(s) return s:match("[][^$()%.*+-?]") end
 
 
 -- Index each literal pattern and pattern table's first value (t[1]). 
 -- Also, add insert patterns with vars or string patterns in the
--- appropriate place(s). 
+-- appropriate place(s).
 local function index_spec(spec)
-   local ls, ts = {}, {}        --non-string literals and tables
-   local ss, tss = {}, {}       --string literals and tables
+   local ls, ts = {}, {}        --non-str literals and tables
+   local ss, tss = {}, {}       --str literals and table strs
    local lvs, tvs = {}, {}      --single-value-vars, tables keyed by vars
    local sps, tsps = {}, {}     --str patterns, table key str patterns
    local vrs = {}               --rows with vars in the result
-   local sprs = {}              --rows with string patterns
+   -- rows w/ string patterns (where :match() should be used, not ==)
+   local sprs = {}
 
    for id, row in ipairs(spec) do
       local pat, res = row[1], row[2]
@@ -236,12 +255,17 @@ local function check_index(spec, t, idx)
 end
 
 
----Return a matcher function for a given specification.
+---Return a matcher function for a given specification. When the
+-- function is called on one or more values, its first argument is
+-- tested in order against every row that could possibly match it,
+-- selecting the relevant result (if any) or returning the values
+-- (false, "Match failed", val).
+-- If the result is a function, it is called with an environment table
+-- containing any variable or string pattern captures and any subsequent
+-- arguments passed to the matcher function (in env.args).
 --@param spec A list of rows, where each row is of the form
 --  { pattern, result, [when=capture_test_fun(cs)] }. Each
 --  table pattern is indexed by pattern[1].
---@usage spec.fail: The spec can have an optional function to
---  call when nothing matches. By default, match_fail is used.
 --@usage spec.ids: An optional list of table values that should be
 --  compared by identity, not structure. If any empty tables are
 --  being used as a sentinel value (e.g. "MAGIC_ID = {}"), list
