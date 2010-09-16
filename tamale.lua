@@ -34,6 +34,7 @@ local function trace(...) print(string.format(...)) end
 ---TAble-MAtching Lua Extension.
 module("tamale")
 
+VERSION = "1.2"
 
 DEBUG = false                   --Set to true to enable traces.
 

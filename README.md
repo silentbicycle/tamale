@@ -15,13 +15,15 @@ include the row
 in a series of match declarations (where V is a local alias to
 *tamale.var*). The function would be passed a table with X, Y, and Z
 keys and the numbers. Also, the capture table always includes the entire
-matched pattern as t[1]. If the result is a literal table, any variables
-in it will be replaced by their captures.
+matched pattern as t.input. If the result is a literal table, any
+variables in it will be replaced by their captures. Likewise, if the
+pattern is a string with match captures (e.g. "foo (%d+)"), they will
+be appended to the environment table as env[1], env[2], etc.
 
-Each row can have an optional keyword argument of *where*=*f(cs)*. This
+Each row can have an optional keyword argument of *when*=*f(cs)*. This
 passes the captures to a function which returns whether those captures
 are acceptacle (true/false). For example,
-    { "email", V"address", where=valid_address(t) }
+    { "email", V"address", when=valid_address(t) }
 and valid_address checks if t.address is a valid e-mail address.
 (Any errors during this function are treated as implicit failure.)
 
