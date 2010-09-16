@@ -27,10 +27,9 @@ OTHER DEALINGS IN THE SOFTWARE.
 -- Depenedencies
 local assert, getmetatable, ipairs, pairs, pcall, setmetatable, type =
    assert, getmetatable, ipairs, pairs, pcall, setmetatable, type
-local concat, insert = table.concat, table.insert
+local concat, insert, sort = table.concat, table.insert, table.sort
 
 local function trace(...) print(string.format(...)) end
-
 
 ---TAble-MAtching Lua Extension.
 module("tamale")
@@ -64,11 +63,28 @@ function match_fail(val)
 end
 
 
+-- Key-weak cache for table counts, since #t only gives the
+-- length of the array portion, and otherwise, values with extra
+-- non-numeric keys can match rows that do not have them.
+local counts = setmetatable({}, { __mode="k"})
+
+local function get_count(t)
+   local v = counts[t]
+   if not v then
+      v = 0
+      for k in pairs(t) do v = v + 1 end
+      counts[t] = v
+   end
+   return v
+end
+
+
 -- Structurally match val against a pattern, setting variables in the
 -- pattern to the corresponding values in val, and recursively
--- unifying table fields.
-local function unify(pat, val, env, ids)
-   local pt = type(pat)
+-- unifying table fields. String patterns are matched against value
+-- strings, adding any captures to the environment's array.
+local function unify(pat, val, env, ids, has_pattern)
+   local pt, vt = type(pat), type(val)
    if pt == "table" then
       if is_var(pat) then
          local cur = env[pat.name]
@@ -76,14 +92,20 @@ local function unify(pat, val, env, ids)
          env[pat.name] = val
          return env
       end
-      if type(val) ~= "table" or #pat ~= #val then return false end
+      local ct = get_count(pat)
+      if type(val) ~= "table" or ct ~= get_count(val) then return false end
       if ids[pat] and pat ~= val then --compare by pointer equality
          return false
       else
          for k,v in pairs(pat) do
-            if not unify(v, val[k], env, ids) then return false end
+            if not unify(v, val[k], env, ids, has_pattern) then return false end
          end
       end
+      return env
+   elseif vt == "string" and has_pattern then
+      local cs = { val:match(pat) }
+      if #cs == 0 then return false end
+      for _,c in ipairs(cs) do env[#env+1] = c end
       return env
    else                         --just compare as literals
       return pat == val and env or false
@@ -124,18 +146,6 @@ local function append(t, key, val)
 end
 
 
--- If the list of row IDs didn't exist when the var row was
--- indexed (and thus didn't get added), add it here.
-local function prepend_vars(vars, lists)
-   for i=#vars,1,-1 do
-      for k,l in pairs(lists) do
-         local vid = vars[i]
-         if l[1] > vid then insert(l, 1, vid) end
-      end
-   end
-end
-
-
 local function has_vars(res)
    if type(res) ~= "table" then return false end
    if is_var(res) then return true end
@@ -148,24 +158,63 @@ local function has_vars(res)
 end
 
 
+-- If the list of row IDs didn't exist when the var row was
+-- indexed (and thus didn't get added), add it here.
+local function prepend_vars(vars, lists)
+   for i=#vars,1,-1 do
+      for k,l in pairs(lists) do
+         local vid = vars[i]
+         if l[1] > vid then insert(l, 1, vid) end
+      end
+   end
+end
+
+
+-- Does a string contain any "magic" pattern chars?
+local function is_pattern(s) return s:match("[][^$()%.*+-?]") end
+
+
 -- Index each literal pattern and pattern table's first value (t[1]). 
--- Also, add insert patterns with vars in the appropriate place(s). 
+-- Also, add insert patterns with vars or string patterns in the
+-- appropriate place(s).
 local function index_spec(spec)
-   local ls, ts = {}, {}        --literals and tables
-   local lvs, tvs = {}, {}      --vars
+   local ls, ts = {}, {}        --non-str literals and tables
+   local ss, tss = {}, {}       --str literals and table strs
+   local lvs, tvs = {}, {}      --single-value-vars, tables keyed by vars
+   local sps, tsps = {}, {}     --str patterns, table key str patterns
    local vrs = {}               --rows with vars in the result
+   -- rows w/ string patterns (where :match() should be used, not ==)
+   local sprs = {}
 
    for id, row in ipairs(spec) do
       local pat, res = row[1], row[2]
+      local pt = type(pat)
       if is_var(pat) then       --match anything
          lvs[#lvs+1] = id; tvs[#tvs+1] = id
-      elseif type(pat) == "table" then
+         sps[#sps+1] = id; tsps[#tsps+1] = id
+      elseif pt == "table" then
          local v = pat[1] or NIL
          if is_var(v) then    --vars go in every index
             for k in pairs(ts) do append(ts, k, id) end
-            tvs[#tvs+1] = id
+            tvs[#tvs+1] = id; tsps[#tsps+1] = id
+         elseif type(v) == "string" then
+            append(tss, v, id)
+            if is_pattern(v) then
+               for k in pairs(tss) do
+                  if k ~= v then append(tss, k, id) end
+               end
+               tsps[#tsps+1] = id; sprs[id] = true
+            end
          else
             append(ts, v, id)
+         end
+      elseif pt == "string" then
+         append(ss, pat, id)
+         if is_pattern(pat) then
+            for k in pairs(ss) do
+               if k ~= pat then append(ss, k, id) end
+            end
+            sps[#sps+1] = id; sprs[id] = true
          end
       else
          append(ls, pat, id)
@@ -174,18 +223,31 @@ local function index_spec(spec)
       if has_vars(res) then vrs[id] = true end
    end
 
-   prepend_vars(lvs, ls); prepend_vars(tvs, ts)
-   ls[VAR] = lvs; ts[VAR] = tvs
-   return { ls=ls, ts=ts, vrs=vrs }
+   prepend_vars(lvs, ls)
+   prepend_vars(lvs, ss); prepend_vars(sps, ss)
+   prepend_vars(tvs, ts)
+   prepend_vars(tvs, tss); prepend_vars(tsps, tss)
+   ls[VAR] = lvs; ss[VAR] = sps
+   ts[VAR] = tvs; tss[VAR] = tsps
+   return { ls=ls, ss=ss, ts=ts, tss=tss, vrs=vrs, sprs=sprs }
 end
 
 
 -- Get the appropriate list of rows to check (if any).
 local function check_index(spec, t, idx)
-   if type(t) == "table" then
+   local tt = type(t)
+   if tt == "table" then
       local key = t[1] or NIL
-      local ts = idx.ts
-      return ts[key] or ts[VAR]
+      if type(key) == "string" then
+         local tss = idx.tss
+         return tss[key] or tss[VAR]
+      else
+         local ts = idx.ts
+         return ts[key] or ts[VAR]
+      end
+   elseif tt == "string" then
+      local ss = idx.ss
+      return ss[t] or ss[VAR]
    else
       local ls = idx.ls
       return ls[t] or ls[VAR]
@@ -193,12 +255,17 @@ local function check_index(spec, t, idx)
 end
 
 
----Return a matcher function for a given specification.
+---Return a matcher function for a given specification. When the
+-- function is called on one or more values, its first argument is
+-- tested in order against every row that could possibly match it,
+-- selecting the relevant result (if any) or returning the values
+-- (false, "Match failed", val).
+-- If the result is a function, it is called with an environment table
+-- containing any variable or string pattern captures and any subsequent
+-- arguments passed to the matcher function (in env.args).
 --@param spec A list of rows, where each row is of the form
 --  { pattern, result, [when=capture_test_fun(cs)] }. Each
 --  table pattern is indexed by pattern[1].
---@usage spec.fail: The spec can have an optional function to
---  call when nothing matches. By default, match_fail is used.
 --@usage spec.ids: An optional list of table values that should be
 --  compared by identity, not structure. If any empty tables are
 --  being used as a sentinel value (e.g. "MAGIC_ID = {}"), list
@@ -212,25 +279,27 @@ function matcher(spec)
    end
 
    local idx = index_spec(spec)
-   local vrs = idx.vrs          --variable rows
+   local vrs, sprs = idx.vrs, idx.sprs  --variable / str pattern rows
 
    return
    function (t, ...)
       local rows = check_index(spec, t, idx)
-      if debug then trace(" -- Checking rows: %s", concat(rows, ", ")) end
+      if debug then
+         trace(" -- Checking rows: %s", concat(rows, ", "))
+      end
 
       for _,id in ipairs(rows) do
          local row = spec[id]
          local pat, res, when = row[1], row[2], row.when
          local args = { ... }
 
-         local u = unify(pat, t, { args=args }, ids)
+         local u = unify(pat, t, { args=args }, ids, sprs[id])
          if debug then
             trace("-- Trying row %d...%s", id, u and "matched" or "failed")
          end
          
          if u then
-            u[1] = t         --whole matched value
+            u.input = t         --whole matched value
             if when then
                local ok, val = pcall(when, u)
                if debug then trace("-- Running when(captures) check...%s",

@@ -34,14 +34,12 @@ end
 
 function timed(name, f, ct)
    ct = ct or DEF_CT
-   local pre, cpre = now(), os.clock()
+   local cpre = os.clock()
    for i=1,ct do f() end
-   local post, cpost = now(), os.clock()
-   local delta, cdelta = post - pre, cpost - cpre
-   print(fmt("%s: %d x", name, ct))
-   print(fmt("\treal %.3f ms (%.3f ms per), clock %d ms (%.3f ms per)",
-             delta * 1000, (delta * 1000)/ct,
-             cdelta * 1000, (cdelta * 1000) / ct))
+   local cpost = os.clock()
+   local cdelta = cpost - cpre
+   print(fmt("%25s: %d x: clock %d ms (%.3f ms per)",
+             name, ct, cdelta * 1000, (cdelta * 1000) / ct))
 end
 
 M = init("search")

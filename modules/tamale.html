@@ -131,14 +131,14 @@ Default hook for match failure.
 
 <dt><a name="matcher"></a><strong>matcher</strong>&nbsp;(spec)</dt>
 <dd>
-Return a matcher function for a given specification.
+Return a matcher function for a given specification. When the function is called on one or more values, its first argument is tested in order against every row that could possibly match it, selecting the relevant result (if any) or returning the values (false, "Match failed", val). If the result is a function, it is called with an environment table containing any variable or string pattern captures and any subsequent arguments passed to the matcher function (in env.args).
 
 
 <h3>Parameters</h3>
 <ul>
 	
 	<li>
-	  spec: A list of rows, where each row is of the form { pattern, result, [where=capture_test_fun(cs)] }. Each table pattern is indexed by pattern[1].
+	  spec: A list of rows, where each row is of the form { pattern, result, [when=capture_test_fun(cs)] }. Each table pattern is indexed by pattern[1].
 	</li>
 	
 </ul>
@@ -148,8 +148,6 @@ Return a matcher function for a given specification.
 
 <h3>Usage</h3>
 <ul>
-	
-	<li>spec.fail: The spec can have an optional function to call when nothing matches. By default, match_fail is used.
 	
 	<li>spec.ids: An optional list of table values that should be compared by identity, not structure. If any empty tables are being used as a sentinel value (e.g. "MAGIC_ID = {}"), list them here.
 	

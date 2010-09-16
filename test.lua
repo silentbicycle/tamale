@@ -181,16 +181,63 @@ function test_extra_matcher_arg()
 end
 
 function test_match_order()
+   local is_number = function(t) return type(t.X) == "number" end
+
    local m = tamale.matcher {
-      { "x", 1 },
+      { V"X", 1, when=is_number },
       { "y", 2 },
       { V"x", 3 },
       { "z", 4 },
    }
-   assert_equal(1, m"x")
+   assert_equal(1, m(23))
    assert_equal(2, m"y")
-   assert_equal(3, m"z")        --should be shadowed by V"x"
+   assert_equal(3, m"z", [[should be shadowed by V"x"]])
    assert_equal(3, m"w")
+end
+
+function test_str_pattern()
+   local m = tamale.matcher {
+      { "foo (%d+)", function(t) return tonumber(t[1]) end },
+      { "foo (%a+)$", function(t) return t[1] end },
+      { "foo (%a+) (%d+) (%a+)",
+        function(t) return t[1] .. tostring(t[2]) .. t[3] end
+      },
+      { "foo", 3 },
+      { "bar", 4 },
+   }
+   assert_equal(23, m"foo 23")
+   assert_equal("bar", m"foo bar")
+   assert_equal(3, m"foo")
+   assert_equal(4, m"bar")
+end
+
+function test_table_str_pattern()
+   local m = tamale.matcher {
+      { {"foo (%d+)"}, function(t) return tonumber(t[1]) end },
+      { {"foo (%a+)$"}, function(t) return t[1] end },
+      { {"foo (%a+) (%d+) (%a+)"},
+        function(t) return t[1] .. tostring(t[2]) .. t[3] end
+      },
+      { {"foo"}, 3 },
+      { {"bar"}, 4 },
+   }
+   assert_equal(23, m{"foo 23"})
+   assert_equal("bar", m{"foo bar"})
+   assert_equal("bar23baz", m{"foo bar 23 baz"})
+   assert_equal(3, m{"foo"})
+   assert_equal(4, m{"bar"})
+end
+
+function test_extra_keys()
+   local m = tamale.matcher {
+      { { k=1, v=2}, 3 },
+      { { k=1, v=2, e=3}, 4 },
+      { { 1, k=1, v=2 }, 5 },
+   }
+   assert_equal(3, m{k=1, v=2})
+   assert_equal(4, m{k=1, v=2, e=3},
+                "should not silently ignore extra e=3")
+   assert_equal(5, m{1, k=1, v=2})
 end
 
 lunatest.run()
