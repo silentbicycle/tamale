@@ -1,0 +1,21 @@
+v1.2.1:
+   * Return to comparing strings by ==, and added case for when pattern is a closure instead. This is more predictable, and removes a bunch of indexing special cases. Also added utility function tamale.P, which converts a string literal to a pattern string matcher (i.e., P"num %d+").
+   * Added "partial" row flag and special V"..." variable for allowing/capturing extra value fields not present in the row pattern.
+   * Thanks to David Manura, Javier Guerra Giraldez, and Steve Donovan for feedback.
+
+v1.2:
+   * Added substitution for variables in result pattern, if any.
+   * Changed "where" row hook to "when", to match Erlang. (oops)
+   * Added check to block matching when value table had extra fields missing in pattern table.
+   * Made strings compare by == unless pattern characters were present, then string.match is used (with captures). (This was probably a bad idea, as it's likely to cause unexpected bugs.)
+   * Added explicit version number and rockspec.
+   * Added several tests.
+
+v1.1:
+   * Sped up unification by saving ignore flag for variables at creation, than rechecking names at runtime.
+   * Added ids option, to mark sentinel values which should still be compared by value rather than structure.
+   * Removed "fail" hook for spec table, since it's functionally equivalent to adding a final row of { V"_", failure_handler }.
+   * Added several tests, bugfixes, etc. (Thanks to Steve Donovan for early feedback.)
+
+v1.0:
+   * Initial release.

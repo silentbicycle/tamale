@@ -74,6 +74,11 @@
 <table class="function_list">
 
 	<tr>
+	<td class="name" nowrap><a href="#P">P</a>&nbsp;(str)</td>
+	<td class="summary">Treat a value as a pattern, rather than a string literal.</td>
+	</tr>
+
+	<tr>
 	<td class="name" nowrap><a href="#match_fail">match_fail</a>&nbsp;(val)</td>
 	<td class="summary">Default hook for match failure.</td>
 	</tr>
@@ -106,6 +111,32 @@
 
 
 
+<dt><a name="P"></a><strong>P</strong>&nbsp;(str)</dt>
+<dd>
+Treat a value as a pattern, rather than a string literal. Returns a function closure that calls :match against the input (for matching via pattern strings, LPEG patterns, etc.), rather than comparing via ==. This would probably be locally aliased, and used like { P"num %d+", handler }.
+
+
+<h3>Parameters</h3>
+<ul>
+	
+	<li>
+	  str: 
+	</li>
+	
+</ul>
+
+
+
+
+
+
+
+
+</dd>
+
+
+
+
 <dt><a name="match_fail"></a><strong>match_fail</strong>&nbsp;(val)</dt>
 <dd>
 Default hook for match failure.
@@ -134,7 +165,7 @@ Default hook for match failure.
 
 <dt><a name="matcher"></a><strong>matcher</strong>&nbsp;(spec)</dt>
 <dd>
-Return a matcher function for a given specification. When the function is called on one or more values, its first argument is tested in order against every row that could possibly match it, selecting the relevant result (if any) or returning the values (false, "Match failed", val). If the result is a function, it is called with an environment table containing any variable or string pattern captures and any subsequent arguments passed to the matcher function (in env.args).
+Return a matcher function for a given specification. When the function is called on one or more values, its first argument is tested in order against every row that could possibly match it, selecting the relevant result (if any) or returning the values (false, "Match failed", val). If the result is a function, it is called with an environment table containing any captures and any subsequent arguments passed to the matcher function (in env.args).
 
 
 <h3>Parameters</h3>
@@ -184,8 +215,14 @@ Mark a string in a match pattern as a variable key. (You probably want to alias 
 
 
 
-<h3>Usage:</h3>
-{ "extract", {var"_", var"_", var"third", var"_" } }
+<h3>Usage</h3>
+<ul>
+	
+	<li>{ "extract", {var"_", var"_", var"third", var"_" } }
+	
+	<li>A variable named "..." captures subsequent array-portion values.
+	
+</ul>
 
 
 
