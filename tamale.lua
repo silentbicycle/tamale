@@ -258,7 +258,6 @@ function matcher(spec)
    end
 
    local idx = index_spec(spec)
-   if debug then dump(idx) end
    local vrs = idx.vrs  --variable rows
 
    return
