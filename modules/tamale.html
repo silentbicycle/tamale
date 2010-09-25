@@ -73,7 +73,7 @@
 
 	<tr>
 	<td class="name" nowrap><a href="#P">P</a>&nbsp;(str)</td>
-	<td class="summary">Treat a value as a pattern, rather than a string literal.</td>
+	<td class="summary">Returns a function that tests a string with string:match, rather than ==.</td>
 	</tr>
 
 	<tr>
@@ -110,7 +110,7 @@
 
 <dt><a name="P"></a><strong>P</strong>&nbsp;(str)</dt>
 <dd>
-Treat a value as a pattern, rather than a string literal. Returns a function closure that calls :match against the input (for matching via pattern strings, LPEG patterns, etc.), rather than comparing via ==. This would probably be locally aliased, and used like { P"num %d+", handler }.
+Returns a function that tests a string with string:match, rather than ==. Any captures from the string match are appended to the capture table. Like var, this would probably be locally aliased, and used like { P"num (%d+)", handler }.
 
 
 <h3>Parameters</h3>
@@ -162,14 +162,14 @@ Default hook for match failure.
 
 <dt><a name="matcher"></a><strong>matcher</strong>&nbsp;(spec)</dt>
 <dd>
-Return a matcher function for a given specification. When the function is called on one or more values, its first argument is tested in order against every row that could possibly match it, selecting the relevant result (if any) or returning the values (false, "Match failed", val). If the result is a function, it is called with an environment table containing any captures and any subsequent arguments passed to the matcher function (in env.args).
+Return a matcher function for a given specification. When the function is called on one or more values, its first argument is tested in order against every rule that could possibly match it, selecting the relevant result (if any) or returning the values (false, "Match failed", val). If the result is a function, it is called with a table containing any captures and any subsequent arguments passed to the matcher function (in env.args).
 
 
 <h3>Parameters</h3>
 <ul>
 	
 	<li>
-	  spec: A list of rows, where each row is of the form { pattern, result, [when=capture_test_fun(cs)] }. Each table pattern is indexed by pattern[1].
+	  spec: A list of rows, where each row is of the form { rule, result, [when=capture_predicate] }.
 	</li>
 	
 </ul>
@@ -182,7 +182,7 @@ Return a matcher function for a given specification. When the function is called
 	
 	<li>spec.ids: An optional list of table values that should be compared by identity, not structure. If any empty tables are being used as a sentinel value (e.g. "MAGIC_ID = {}"), list them here.
 	
-	<li>spec.debug: Turn on debugging traces for the matcher.
+	<li>spec.debug=true: Turn on debugging traces for the matcher.
 	
 </ul>
 

@@ -60,11 +60,10 @@ function var(name)
 end
 
 
----Treat a value as a pattern, rather than a string literal.
--- Returns a function closure that calls :match against the input
--- (for matching via pattern strings, LPEG patterns, etc.), rather
--- than comparing via ==. This would probably be locally aliased,
--- and used like { P"num %d+", handler }.
+---Returns a function that tests a string with string:match, rather
+-- than ==. Any captures from the string match are appended to the
+-- capture table. Like var, this would probably be locally aliased,
+-- and used like { P"num (%d+)", handler }.
 function P(str)
    return function(v)
              if type(v) == "string" then return strmatch(v, str) end
@@ -97,8 +96,8 @@ end
 
 -- Structurally match val against a pattern, setting variables in the
 -- pattern to the corresponding values in val, and recursively
--- unifying table fields. String patterns are matched against value
--- strings, adding any captures to the environment's array.
+-- unifying table fields. Functions are treated as predicates - any
+-- non-false result(s) are considered a success and are captured.
 local function unify(pat, val, env, ids, row)
    local pt, vt = type(pat), type(val)
    if pt == "table" then
@@ -196,7 +195,7 @@ local function indexable(v)
 end
 
 -- Index each literal pattern and pattern table's first value (t[1]). 
--- Also, add insert patterns with vars or string patterns in the
+-- Also, add insert patterns with variables or functions in the
 -- appropriate place(s).
 local function index_spec(spec)
    local ls, ts = {}, {}        --literals and tables
@@ -251,20 +250,19 @@ end
 
 ---Return a matcher function for a given specification. When the
 -- function is called on one or more values, its first argument is
--- tested in order against every row that could possibly match it,
+-- tested in order against every rule that could possibly match it,
 -- selecting the relevant result (if any) or returning the values
 -- (false, "Match failed", val).
--- If the result is a function, it is called with an environment table
--- containing any captures and any subsequent
--- arguments passed to the matcher function (in env.args).
+-- If the result is a function, it is called with a table containing
+-- any captures and any subsequent arguments passed to the matcher
+-- function (in env.args).
 --@param spec A list of rows, where each row is of the form
---  { pattern, result, [when=capture_test_fun(cs)] }. Each
---  table pattern is indexed by pattern[1].
+--  { rule, result, [when=capture_predicate] }.
 --@usage spec.ids: An optional list of table values that should be
 --  compared by identity, not structure. If any empty tables are
 --  being used as a sentinel value (e.g. "MAGIC_ID = {}"), list
 --  them here.
---@usage spec.debug: Turn on debugging traces for the matcher.
+--@usage spec.debug=true: Turn on debugging traces for the matcher.
 function matcher(spec)
    local debug = spec.debug or DEBUG
    local ids = {}
@@ -285,6 +283,7 @@ function matcher(spec)
       for _,id in ipairs(rows) do
          local row = spec[id]
          local pat, res, when = row[1], row[2], row.when
+         assert(pat, "Missing pattern"); assert(res, "Missing result")
          local args = { ... }
 
          local u = unify(pat, t, { args=args }, ids, row)
