@@ -34,7 +34,7 @@ local function trace(...) print(string.format(...)) end
 ---TAble-MAtching Lua Extension.
 module("tamale")
 
-VERSION = "1.2"
+VERSION = "1.2.1"
 
 DEBUG = false                   --Set to true to enable traces.
 
@@ -51,9 +51,20 @@ local function is_var(t) return getmetatable(t) == VAR end
 -- Any variables beginning with _ are ignored.
 -- @usage { "extract", {var"_", var"_", var"third", var"_" } }
 function var(name)
-   assert(type(name) == "string", "Variable must be string")
+   assert(type(name) == "string", "Variable name must be string")
    local ignore = (name:sub(1, 1) == "_")
    return setmetatable( { name=name, ignore=ignore }, VAR)
+end
+
+
+---Treat a value as a pattern, rather than a string literal.
+-- Returns a function closure that calls :match against the input
+-- (for matching via pattern strings, LPEG patterns, etc.), rather
+-- than comparing via ==.
+-- This would probably be locally aliased, i.e.,
+-- { P"num %d+", handler }.
+function P(str)
+   return function(v) return v:match(str) end
 end
 
 
@@ -84,7 +95,7 @@ end
 -- pattern to the corresponding values in val, and recursively
 -- unifying table fields. String patterns are matched against value
 -- strings, adding any captures to the environment's array.
-local function unify(pat, val, env, ids, has_pattern)
+local function unify(pat, val, env, ids)
    local pt, vt = type(pat), type(val)
    if pt == "table" then
       if is_var(pat) then
@@ -99,15 +110,15 @@ local function unify(pat, val, env, ids, has_pattern)
          return false
       else
          for k,v in pairs(pat) do
-            if not unify(v, val[k], env, ids, has_pattern) then return false end
+            if not unify(v, val[k], env, ids) then return false end
          end
       end
       return env
-   elseif vt == "string" and has_pattern then
-      local cs = { val:match(pat) }
+   elseif pt == "function" then
+      local cs = { pat(val) }
       if #cs == 0 then return false end
       for _,c in ipairs(cs) do env[#env+1] = c end
-      return env
+      return env 
    else                         --just compare as literals
       return pat == val and env or false
    end
@@ -163,59 +174,37 @@ end
 -- indexed (and thus didn't get added), add it here.
 local function prepend_vars(vars, lists)
    for i=#vars,1,-1 do
+      local vid = vars[i]
       for k,l in pairs(lists) do
-         local vid = vars[i]
          if l[1] > vid then insert(l, 1, vid) end
       end
    end
 end
 
-
--- Does a string contain any "magic" pattern chars?
-local function is_pattern(s) return s:match("[][^$()%.*+-?]") end
-
+local function indexable(v)
+   return not is_var(v) and type(v) ~= "function"
+end
 
 -- Index each literal pattern and pattern table's first value (t[1]). 
 -- Also, add insert patterns with vars or string patterns in the
 -- appropriate place(s).
 local function index_spec(spec)
-   local ls, ts = {}, {}        --non-str literals and tables
-   local ss, tss = {}, {}       --str literals and table strs
-   local lvs, tvs = {}, {}      --single-value-vars, tables keyed by vars
-   local sps, tsps = {}, {}     --str patterns, table key str patterns
+   local ls, ts = {}, {}        --literals and tables
+   local lni, tni = {}, {}      --non-indexable fields for same
    local vrs = {}               --rows with vars in the result
-   -- rows w/ string patterns (where :match() should be used, not ==)
-   local sprs = {}
 
    for id, row in ipairs(spec) do
       local pat, res = row[1], row[2]
       local pt = type(pat)
-      if is_var(pat) then       --match anything
-         lvs[#lvs+1] = id; tvs[#tvs+1] = id
-         sps[#sps+1] = id; tsps[#tsps+1] = id
+      if not indexable(pat) then     --could match anything
+         lni[#lni+1] = id; tni[#tni+1] = id
       elseif pt == "table" then
          local v = pat[1] or NIL
-         if is_var(v) then    --vars go in every index
+         if not indexable(v) then    --goes in every index
             for k in pairs(ts) do append(ts, k, id) end
-            tvs[#tvs+1] = id; tsps[#tsps+1] = id
-         elseif type(v) == "string" then
-            append(tss, v, id)
-            if is_pattern(v) then
-               for k in pairs(tss) do
-                  if k ~= v then append(tss, k, id) end
-               end
-               tsps[#tsps+1] = id; sprs[id] = true
-            end
+            tni[#tni+1] = id
          else
             append(ts, v, id)
-         end
-      elseif pt == "string" then
-         append(ss, pat, id)
-         if is_pattern(pat) then
-            for k in pairs(ss) do
-               if k ~= pat then append(ss, k, id) end
-            end
-            sps[#sps+1] = id; sprs[id] = true
          end
       else
          append(ls, pat, id)
@@ -224,13 +213,10 @@ local function index_spec(spec)
       if has_vars(res) then vrs[id] = true end
    end
 
-   prepend_vars(lvs, ls)
-   prepend_vars(lvs, ss); prepend_vars(sps, ss)
-   prepend_vars(tvs, ts)
-   prepend_vars(tvs, tss); prepend_vars(tsps, tss)
-   ls[VAR] = lvs; ss[VAR] = sps
-   ts[VAR] = tvs; tss[VAR] = tsps
-   return { ls=ls, ss=ss, ts=ts, tss=tss, vrs=vrs, sprs=sprs }
+   prepend_vars(lni, ls)
+   prepend_vars(tni, ts)
+   ls[VAR] = lni; ts[VAR] = tni
+   return { ls=ls, ts=ts, vrs=vrs }
 end
 
 
@@ -239,16 +225,8 @@ local function check_index(spec, t, idx)
    local tt = type(t)
    if tt == "table" then
       local key = t[1] or NIL
-      if type(key) == "string" then
-         local tss = idx.tss
-         return tss[key] or tss[VAR]
-      else
-         local ts = idx.ts
-         return ts[key] or ts[VAR]
-      end
-   elseif tt == "string" then
-      local ss = idx.ss
-      return ss[t] or ss[VAR]
+      local ts = idx.ts
+      return ts[key] or ts[VAR]
    else
       local ls = idx.ls
       return ls[t] or ls[VAR]
@@ -280,7 +258,8 @@ function matcher(spec)
    end
 
    local idx = index_spec(spec)
-   local vrs, sprs = idx.vrs, idx.sprs  --variable / str pattern rows
+   if debug then dump(idx) end
+   local vrs = idx.vrs  --variable rows
 
    return
    function (t, ...)
@@ -294,7 +273,7 @@ function matcher(spec)
          local pat, res, when = row[1], row[2], row.when
          local args = { ... }
 
-         local u = unify(pat, t, { args=args }, ids, sprs[id])
+         local u = unify(pat, t, { args=args }, ids)
          if debug then
             trace("-- Trying row %d...%s", id, u and "matched" or "failed")
          end
