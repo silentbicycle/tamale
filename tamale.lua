@@ -95,7 +95,7 @@ end
 -- pattern to the corresponding values in val, and recursively
 -- unifying table fields. String patterns are matched against value
 -- strings, adding any captures to the environment's array.
-local function unify(pat, val, env, ids)
+local function unify(pat, val, env, ids, partial)
    local pt, vt = type(pat), type(val)
    if pt == "table" then
       if is_var(pat) then
@@ -104,14 +104,16 @@ local function unify(pat, val, env, ids)
          env[pat.name] = val
          return env
       end
-      local ct = get_count(pat)
-      if type(val) ~= "table" or ct ~= get_count(val) then return false end
+      if vt ~= "table" then return false end
       if ids[pat] and pat ~= val then --compare by pointer equality
          return false
       else
          for k,v in pairs(pat) do
-            if not unify(v, val[k], env, ids) then return false end
+            if not unify(v, val[k], env, ids, partial) then return false end
          end
+      end
+      if not partial then       --make sure val doesn't have extra fields
+         if get_count(pat) ~= get_count(val) then return false end
       end
       return env
    elseif pt == "function" then
@@ -272,7 +274,7 @@ function matcher(spec)
          local pat, res, when = row[1], row[2], row.when
          local args = { ... }
 
-         local u = unify(pat, t, { args=args }, ids)
+         local u = unify(pat, t, { args=args }, ids, row.partial)
          if debug then
             trace("-- Trying row %d...%s", id, u and "matched" or "failed")
          end

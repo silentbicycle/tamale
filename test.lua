@@ -247,6 +247,8 @@ function test_table_str_pattern()
    assert_equal(4, m{"bar"})
 end
 
+-- By default, the presence of extra keys should block matching.
+-- (This can be disabled with the partial=true flag on a row.)
 function test_extra_keys()
    local m = tamale.matcher {
       { { k=1, v=2}, 3 },
@@ -257,6 +259,24 @@ function test_extra_keys()
    assert_equal(4, m{k=1, v=2, e=3},
                 "should not silently ignore extra e=3")
    assert_equal(5, m{1, k=1, v=2})
+end
+
+
+-- Test that partial row matches work: match against anything
+-- that has a tag of "foo", and return the sum of its numeric fields.
+function test_partial()
+   local function sum_fields(env)
+      local tot = 0
+      for k,v in pairs(env.input) do
+         if type(v) == "number" then tot = tot + v end
+      end
+      return tot
+   end
+   local m = tamale.matcher {
+      { { tag="foo" }, sum_fields, partial=true },
+      { V"_", false },
+   }
+   assert_equal(12, m{tag="foo", x=3, y=4, z=5})
 end
 
 lunatest.run()
