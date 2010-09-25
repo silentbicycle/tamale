@@ -29,7 +29,6 @@ local assert, getmetatable, ipairs, pairs, pcall, setmetatable, type =
    assert, getmetatable, ipairs, pairs, pcall, setmetatable, type
 local concat, insert, sort = table.concat, table.insert, table.sort
 local strmatch = string.match
-local tostring, dump = tostring, my.dump
 
 local function trace(...) print(string.format(...)) end
 
