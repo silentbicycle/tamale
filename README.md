@@ -4,7 +4,7 @@ ML, Prolog, Erlang, Haskell, etc.).
 **Basic usage:**
 
     require "tamale"
-    local V, P = tamale.var, tamale.P --for marking variabless & string patterns
+    local V, P = tamale.var, tamale.P --for marking variables & string patterns
     local function is_number(t) return type(t.X) == "number" end
     local function handle_pair(t) return { t.X, t.Y } end
 
