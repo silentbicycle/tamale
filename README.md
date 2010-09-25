@@ -1,5 +1,13 @@
+Tamale - a TAble MAtching Lua Extension
+
 This is a Lua library to add basic structural pattern matching (as in
 ML, Prolog, Erlang, Haskell, etc.).
+
+In Lua terms: it takes a table of rules and returns a matcher function.
+That function tests its input against each rule (via a rule iterator),
+and the first rule that has a non-false result is the overall match
+result. If it results in a function, that function is called with any
+captures from the input.
 
 **Basic usage:**
 
@@ -35,20 +43,16 @@ ML, Prolog, Erlang, Haskell, etc.).
     -- variables starting with "_" are ignored
     m({1, 2, 3})        --> {3}
 
-Code structured as a series of rules (declarative programming) is often
-easy to reason about, maintain, etc. Instead of writing a tangled series
-of nested if / else if / else statements by hand, they can automatically
-be generated from a table like this.
+Code structured as a series of rules (declarative programming) is easy
+to reason about and maintain. Instead of writing a tangled series of
+nested if / else if / else statements by hand, they can automatically be
+generated from a table like this, and various implementation tricks
+(such as indexing) can make the matching more efficient than linear
+search.
 
-The rules are tried in order, so more general rules will match before
-later, more specific rules. Tamale indexes the pattern table by literal
-values (strings, numbers, etc.) and the first value in tables (p[1]),
-among other things, so many impossible tests are actually eliminated
-upfront, when the matcher function is built.
-
-For further usage examples, see the test suite. Also, as this is a
-technique imported from other, more declarative, languages, its real
-potential may be better understood by studying them direcly.
+For further usage examples, see the test suite. Also, since this style
+of programming comes from more declarative languages, it may help to
+study them direcly.
 
 Particularly recommended:
 
