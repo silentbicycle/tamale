@@ -28,6 +28,8 @@ OTHER DEALINGS IN THE SOFTWARE.
 local assert, getmetatable, ipairs, pairs, pcall, setmetatable, type =
    assert, getmetatable, ipairs, pairs, pcall, setmetatable, type
 local concat, insert, sort = table.concat, table.insert, table.sort
+local strmatch = string.match
+local tostring, dump = tostring, my.dump
 
 local function trace(...) print(string.format(...)) end
 
@@ -65,7 +67,9 @@ end
 -- than comparing via ==. This would probably be locally aliased,
 -- and used like { P"num %d+", handler }.
 function P(str)
-   return function(v) return v:match(str) end
+   return function(v)
+             if type(v) == "string" then return strmatch(v, str) end
+          end
 end
 
 
@@ -123,7 +127,7 @@ local function unify(pat, val, env, ids, row)
       return env
    elseif pt == "function" then
       local cs = { pat(val) }
-      if #cs == 0 then return false end
+      if #cs == 0 or not cs[1] then return false end
       for _,c in ipairs(cs) do env[#env+1] = c end
       return env 
    else                         --just compare as literals
@@ -294,7 +298,7 @@ function matcher(spec)
             if when then
                local ok, val = pcall(when, u)
                if debug then trace("-- Running when(captures) check...%s",
-                                   ok and "matched" or "failed")
+                                   (ok and val) and "matched" or "failed")
                end
                if ok and val then
                   return do_res(res, u, vrs[id])

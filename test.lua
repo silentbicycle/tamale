@@ -130,12 +130,16 @@ end
 --Result tables with variables in them should have their captures substituted.
 function test_substitution()
    local m = tamale.matcher {
-      { {x=V"x", y=V"y" }, {y=V"x", z=V"y" } }
+      { {x=V"x", y=V"y" }, {y=V"x", z=V"y" } },
+      { {"swap", V"x", V"y" }, {V"y", V"x" } }
    }
 
    local res = m {x=10, y=20}
    assert_equal(10, res.y)
    assert_equal(20, res.z)
+   local res2 = m { "swap", 10, 20 }
+   assert_equal(20, res2[1])
+   assert_equal(10, res2[2])
 end
 
 
@@ -222,12 +226,28 @@ function test_str_pattern()
    assert_equal(4, m"bar")
 end
 
+-- Should not match string patterns when passed as literal strings
 function test_table_str_literal_cmp()
    local m = tamale.matcher {
-      { {"foo (%d+)"}, function(t) return tonumber(t[1]) end },
+      { {"foo (%d+)"}, function(t) return tonumber(t[1]) end }, --fails
       { {"foo 23"}, 1 },
    }
    assert_equal(1, m{"foo 23"})
+end
+
+-- If a function pattern returns false or nil, it fails, otherwise it
+-- succeeds and its results are captured.
+function test_function_matching_behavior()
+   local m = tamale.matcher {
+      { function() end, 1 },    --always fails
+      { function() return false end, 2 }, --always fails
+      { P"foo (%d+)", function(t) return tonumber(t[1]) - 20 end },
+      { function() return 1, 2, 3 end, --always succeeds
+        function(t) return t[1] + t[2] + t[3] end },
+   }
+
+   assert_equal(3, m("foo 23"))
+   assert_equal(6, m(""))
 end
 
 function test_table_str_pattern()
