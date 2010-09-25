@@ -1,7 +1,7 @@
 require "tamale"
 require "lunatest"
 
-local V = tamale.var
+local V, P = tamale.var, tamale.P
 
 local M
 
@@ -186,20 +186,31 @@ function test_match_order()
    local m = tamale.matcher {
       { V"X", 1, when=is_number },
       { "y", 2 },
-      { V"x", 3 },
+      { V"X", 3 },
       { "z", 4 },
    }
    assert_equal(1, m(23))
    assert_equal(2, m"y")
-   assert_equal(3, m"z", [[should be shadowed by V"x"]])
+   assert_equal(3, m"z", [[should be shadowed by V"X"]])
    assert_equal(3, m"w")
 end
 
-function test_str_pattern()
+-- Strings, even those w/ pattern chars, should be compared
+-- literally unless passed in via a comparison function.
+function test_str_literal_cmp()
    local m = tamale.matcher {
       { "foo (%d+)", function(t) return tonumber(t[1]) end },
-      { "foo (%a+)$", function(t) return t[1] end },
-      { "foo (%a+) (%d+) (%a+)",
+      { "foo 23", 1 },
+   }
+   assert_equal(1, m"foo 23")
+end
+
+
+function test_str_pattern()
+   local m = tamale.matcher {
+      { P"foo (%d+)", function(t) return tonumber(t[1]) end },
+      { P"foo (%a+)$", function(t) return t[1] end },
+      { P"foo (%a+) (%d+) (%a+)",
         function(t) return t[1] .. tostring(t[2]) .. t[3] end
       },
       { "foo", 3 },
@@ -211,11 +222,19 @@ function test_str_pattern()
    assert_equal(4, m"bar")
 end
 
-function test_table_str_pattern()
+function test_table_str_literal_cmp()
    local m = tamale.matcher {
       { {"foo (%d+)"}, function(t) return tonumber(t[1]) end },
-      { {"foo (%a+)$"}, function(t) return t[1] end },
-      { {"foo (%a+) (%d+) (%a+)"},
+      { {"foo 23"}, 1 },
+   }
+   assert_equal(1, m{"foo 23"})
+end
+
+function test_table_str_pattern()
+   local m = tamale.matcher {
+      { {P"foo (%d+)"}, function(t) return tonumber(t[1]) end },
+      { {P"foo (%a+)$"}, function(t) return t[1] end },
+      { {P"foo (%a+) (%d+) (%a+)"},
         function(t) return t[1] .. tostring(t[2]) .. t[3] end
       },
       { {"foo"}, 3 },
