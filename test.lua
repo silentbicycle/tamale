@@ -315,4 +315,15 @@ function test_vararg()
    assert_equal(15, m{ "foo", 1, 2, 3, 4, 5})
 end
 
+function test_approx()
+   local function approx(a)
+      return function(b) return math.abs(a-b) < 1 end
+   end
+   local m = tamale.matcher {
+      { {approx(5), approx(10)}, true }
+   }
+   assert_true(m {5.1, 10.1})
+   assert_false(m {5.1, 11.1})
+end
+
 lunatest.run()
