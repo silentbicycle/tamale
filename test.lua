@@ -261,7 +261,6 @@ function test_extra_keys()
    assert_equal(5, m{1, k=1, v=2})
 end
 
-
 -- Test that partial row matches work: match against anything
 -- that has a tag of "foo", and return the sum of its numeric fields.
 function test_partial()
@@ -277,6 +276,23 @@ function test_partial()
       { V"_", false },
    }
    assert_equal(12, m{tag="foo", x=3, y=4, z=5})
+end
+
+-- A variable named "..." captures all of the remaining array-portion fields.
+function test_vararg()
+   local function sum_fields(env)
+      local tot = 0
+      for _,v in ipairs(env['...']) do
+         if type(v) == "number" then tot = tot + v end
+      end
+      return tot
+   end
+
+   local m = tamale.matcher {
+      { { "foo", V"..." }, sum_fields },
+      { V"_", "nope" },
+   }
+   assert_equal(15, m{ "foo", 1, 2, 3, 4, 5})
 end
 
 lunatest.run()

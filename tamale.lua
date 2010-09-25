@@ -50,19 +50,20 @@ local function is_var(t) return getmetatable(t) == VAR end
 -- (You probably want to alias this locally to something short.)
 -- Any variables beginning with _ are ignored.
 -- @usage { "extract", {var"_", var"_", var"third", var"_" } }
+-- @usage A variable named "..." captures subsequent array-portion values.
 function var(name)
    assert(type(name) == "string", "Variable name must be string")
    local ignore = (name:sub(1, 1) == "_")
-   return setmetatable( { name=name, ignore=ignore }, VAR)
+   local rest = (name == "...")
+   return setmetatable( { name=name, ignore=ignore, rest=rest }, VAR)
 end
 
 
 ---Treat a value as a pattern, rather than a string literal.
 -- Returns a function closure that calls :match against the input
 -- (for matching via pattern strings, LPEG patterns, etc.), rather
--- than comparing via ==.
--- This would probably be locally aliased, i.e.,
--- { P"num %d+", handler }.
+-- than comparing via ==. This would probably be locally aliased,
+-- and used like { P"num %d+", handler }.
 function P(str)
    return function(v) return v:match(str) end
 end
@@ -95,7 +96,7 @@ end
 -- pattern to the corresponding values in val, and recursively
 -- unifying table fields. String patterns are matched against value
 -- strings, adding any captures to the environment's array.
-local function unify(pat, val, env, ids, partial)
+local function unify(pat, val, env, ids, row)
    local pt, vt = type(pat), type(val)
    if pt == "table" then
       if is_var(pat) then
@@ -109,11 +110,15 @@ local function unify(pat, val, env, ids, partial)
          return false
       else
          for k,v in pairs(pat) do
-            if not unify(v, val[k], env, ids, partial) then return false end
+            if not unify(v, val[k], env, ids, row) then return false end
          end
       end
-      if not partial then       --make sure val doesn't have extra fields
+      if not row.partial then  --make sure val doesn't have extra fields
          if get_count(pat) ~= get_count(val) then return false end
+      elseif row.rest then      --save V"..." captures
+         local rest = {}
+         for i=row.rest,#val do rest[#rest+1] = val[i] end
+         env['...'] = rest
       end
       return env
    elseif pt == "function" then
@@ -208,10 +213,15 @@ local function index_spec(spec)
          else
             append(ts, v, id)
          end
+
+         for i,v in ipairs(pat) do --check for special V"..." var
+            if is_var(v) and v.rest then
+               row.partial = true; row.rest = i; break
+            end
+         end
       else
          append(ls, pat, id)
       end
-
       if has_vars(res) then vrs[id] = true end
    end
 
@@ -242,7 +252,7 @@ end
 -- selecting the relevant result (if any) or returning the values
 -- (false, "Match failed", val).
 -- If the result is a function, it is called with an environment table
--- containing any variable or string pattern captures and any subsequent
+-- containing any captures and any subsequent
 -- arguments passed to the matcher function (in env.args).
 --@param spec A list of rows, where each row is of the form
 --  { pattern, result, [when=capture_test_fun(cs)] }. Each
@@ -274,7 +284,7 @@ function matcher(spec)
          local pat, res, when = row[1], row[2], row.when
          local args = { ... }
 
-         local u = unify(pat, t, { args=args }, ids, row.partial)
+         local u = unify(pat, t, { args=args }, ids, row)
          if debug then
             trace("-- Trying row %d...%s", id, u and "matched" or "failed")
          end
