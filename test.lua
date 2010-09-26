@@ -326,4 +326,46 @@ function test_approx()
    assert_false(m {5.1, 11.1})
 end
 
+function test_default_case()
+   local m = tamale.matcher {
+      { 1, 1 },
+      -- this one should fail, 2 -> 4 instead.
+      -- make sure the V"_" row is in the index.
+      { 2, 2, when=function(t) return false end },
+      { V"_", 4 },
+   }
+   assert_equal(1, m(1))
+   assert_equal(4, m(2))
+   assert_equal(4, m(5))
+end
+
+-- Translated pattern-matching example from "Learn You Some Erlang for Great Good!"
+-- Also: Regression test. Final default case of V"_" wasn't indexing correctly
+-- against tables, so guards made them fail.
+function test_LYSEFGG_beach()
+
+   local function between(key, x, y)
+      return function(cs)
+                local v = cs[key]
+                return v >= x and v <= y
+             end
+   end
+   
+   local beach = tamale.matcher {
+      { {"celsius", V"N"}, when=between("N", 20, 45),
+        "favorable" },
+      { {"kelvin", V"N"}, when=between("N", 293, 318),
+        "scientifically favorable" },
+      { {"fahrenheit", V"N"}, when=between("N", 68, 113),
+        "favorable in the US" },
+      { V"_", "avoid beach" },
+   }
+   
+   assert_equal("favorable", beach{"celsius", 23})
+   assert_equal("avoid beach", beach{"kelvin", 23})
+   assert_equal("favorable in the US", beach{"fahrenheit", 97})
+   assert_equal("avoid beach", beach{"fahrenheit", -5})
+end
+
+
 lunatest.run()

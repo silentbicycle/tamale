@@ -28,7 +28,7 @@ OTHER DEALINGS IN THE SOFTWARE.
 local assert, getmetatable, ipairs, pairs, pcall, setmetatable, type =
    assert, getmetatable, ipairs, pairs, pcall, setmetatable, type
 local concat, insert, sort = table.concat, table.insert, table.sort
-local strmatch = string.match
+local strmatch, tostring = string.match, tostring
 
 local function trace(...) print(string.format(...)) end
 
@@ -202,29 +202,45 @@ local function index_spec(spec)
    local lni, tni = {}, {}      --non-indexable fields for same
    local vrs = {}               --rows with vars in the result
 
+   local debug = spec.debug
+
    for id, row in ipairs(spec) do
       local pat, res = row[1], row[2]
       local pt = type(pat)
       if not indexable(pat) then     --could match anything
-         lni[#lni+1] = id; tni[#tni+1] = id
+         if debug then trace(" * row %d: not indexable, adding to all", id) end
+         lni[#lni+1] = id; tni[#tni+1] = id --for those that don't yet exist
+         for _,l in ipairs{ls, ts} do       --and append to those that do
+            for k in pairs(l) do append(l, k, id) end
+         end
       elseif pt == "table" then
          local v = pat[1] or NIL
          if not indexable(v) then    --goes in every index
+            if debug then trace(" * row %d: table[1] is not indexable", id) end
             for k in pairs(ts) do append(ts, k, id) end
             tni[#tni+1] = id
          else
+            if debug then trace(" * row %d: indexing on t[1]=%s",
+                                id, tostring(v)) end
             append(ts, v, id)
          end
 
          for i,v in ipairs(pat) do --check for special V"..." var
             if is_var(v) and v.rest then
+               if debug then trace(" * row %d: V'...' found in field %d",
+                                   id, i) end
                row.partial = true; row.rest = i; break
             end
          end
       else
+         if debug then trace(" * row %d: indexing on %s",
+                             id, tostring(pat)) end
          append(ls, pat, id)
       end
-      if has_vars(res) then vrs[id] = true end
+      if has_vars(res) then
+         if debug then trace(" * row %d: found var(s) in result", id) end
+         vrs[id] = true
+      end
    end
 
    prepend_vars(lni, ls)
@@ -283,7 +299,7 @@ function matcher(spec)
       for _,id in ipairs(rows) do
          local row = spec[id]
          local pat, res, when = row[1], row[2], row.when
-         assert(pat, "Missing pattern"); assert(res, "Missing result")
+         if debug and res == nil then trace " -- Missing result" end
          local args = { ... }
 
          local u = unify(pat, t, { args=args }, ids, row)
