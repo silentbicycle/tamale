@@ -98,21 +98,21 @@ end
 -- pattern to the corresponding values in val, and recursively
 -- unifying table fields. Functions are treated as predicates - any
 -- non-false result(s) are considered a success and are captured.
-local function unify(pat, val, env, ids, row)
-   local pt, vt = type(pat), type(val)
+local function unify(pat, val, cs, ids, row)
+   local pt, vt, nil_captures = type(pat), type(val), 0
    if pt == "table" then
       if is_var(pat) then
-         local cur = env[pat.name]
+         local cur = cs[pat.name]
          if cur and cur ~= val and not pat.ignore then return false end
-         env[pat.name] = val
-         return env
+         cs[pat.name] = val
+         return cs
       end
       if vt ~= "table" then return false end
       if ids[pat] and pat ~= val then --compare by pointer equality
          return false
       else
          for k,v in pairs(pat) do
-            if not unify(v, val[k], env, ids, row) then return false end
+            if not unify(v, val[k], cs, ids, row) then return false end
          end
       end
       if not row.partial then  --make sure val doesn't have extra fields
@@ -120,16 +120,16 @@ local function unify(pat, val, env, ids, row)
       elseif row.rest then      --save V"..." captures
          local rest = {}
          for i=row.rest,#val do rest[#rest+1] = val[i] end
-         env['...'] = rest
+         cs['...'] = rest
       end
-      return env
+      return cs
    elseif pt == "function" then
-      local cs = { pat(val) }
-      if #cs == 0 or not cs[1] then return false end
-      for _,c in ipairs(cs) do env[#env+1] = c end
-      return env 
+      local fcs = { pat(val) }  --function captures
+      if #fcs == 0 or not fcs[1] then return false end
+      for _,c in ipairs(fcs) do cs[#cs+1] = c end
+      return cs
    else                         --just compare as literals
-      return pat == val and env or false
+      return pat == val and cs or false
    end
 end
 
@@ -271,7 +271,7 @@ end
 -- (false, "Match failed", val).
 -- If the result is a function, it is called with a table containing
 -- any captures and any subsequent arguments passed to the matcher
--- function (in env.args).
+-- function (in captures.args).
 --@param spec A list of rows, where each row is of the form
 --  { rule, result, [when=capture_predicate] }.
 --@usage spec.ids: An optional list of table values that should be
