@@ -119,11 +119,25 @@ function test_match_IDs()
 
    local m = tamale.matcher {
       { {a, b, c}, "PASS" },
-      ids={a, b, c}
+      ids={a, b, c},
    }
    assert_equal("PASS", m {a, b, c})
    -- (b and c are equal by structure but not identity)
    assert_false(m {a, c, b})
+end
+
+
+function test_IDs_2()
+   local a, b, c = {}, {}, {}
+   local m = tamale.matcher {
+      { {a, 1}, 1},
+      { {b, 1}, 2},
+      { {c, 1}, 3},
+      ids={a, b, c},
+   }
+   assert_equal(1, m{a, 1}, "a")
+   assert_equal(2, m{b, 1}, "b")
+   assert_equal(3, m{c, 1}, "c")
 end
 
 
@@ -365,6 +379,41 @@ function test_LYSEFGG_beach()
    assert_equal("avoid beach", beach{"kelvin", 23})
    assert_equal("favorable in the US", beach{"fahrenheit", 97})
    assert_equal("avoid beach", beach{"fahrenheit", -5})
+end
+
+-- Test indexing by a different field than t[1].
+function test_custom_index()
+   local m = tamale.matcher {
+      { {1, "a"}, 1},
+      { {1, "b"}, 2},
+      { {1, "c"}, 3},
+      { {1, "d"}, 4},
+      index=2,
+   }
+
+   assert_equal(1, m{1, "a"}, "a")
+   assert_equal(2, m{1, "b"}, "b")
+   assert_equal(3, m{1, "c"}, "c")
+   assert_equal(4, m{1, "d"}, "d")
+   assert_false(m{3, "b"})
+end
+
+-- Test indexing by a function.
+function test_custom_index_function()
+   local m = tamale.matcher {
+      { {1, "a", 1}, 1},
+      { {1, "b", 2}, 2},
+      { {1, "c", 3}, 3},
+      { {1, "d", 4}, 4},
+      index=function(r) return r[1] + 3*r[3] end,
+      -- debug=true
+   }
+
+   assert_equal(1, m{1, "a", 1}, "a")
+   assert_equal(2, m{1, "b", 2}, "b")
+   assert_equal(3, m{1, "c", 3}, "c")
+   assert_equal(4, m{1, "d", 4}, "d")
+   assert_false(m{1, "b", 1})
 end
 
 

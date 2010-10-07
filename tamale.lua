@@ -203,6 +203,13 @@ local function index_spec(spec)
    local vrs = {}               --rows with vars in the result
 
    local debug = spec.debug
+   -- field/value to index by, defaults to t[1].
+   local ispec, indexer = spec.index or 1
+   if type(ispec) == "function" then indexer = ispec
+   else
+      indexer = function(t) return t[ispec] end
+   end
+   spec.indexer = indexer
 
    for id, row in ipairs(spec) do
       local pat, res = row[1], row[2]
@@ -214,13 +221,13 @@ local function index_spec(spec)
             for k in pairs(l) do append(l, k, id) end
          end
       elseif pt == "table" then
-         local v = pat[1] or NIL
+         local v = indexer(pat) or NIL
          if not indexable(v) then    --goes in every index
-            if debug then trace(" * row %d: table[1] is not indexable", id) end
+            if debug then trace(" * row %d: index(table) is not indexable", id) end
             for k in pairs(ts) do append(ts, k, id) end
             tni[#tni+1] = id
          else
-            if debug then trace(" * row %d: indexing on t[1]=%s",
+            if debug then trace(" * row %d: indexing on index(t)=%s",
                                 id, tostring(v)) end
             append(ts, v, id)
          end
@@ -254,7 +261,7 @@ end
 local function check_index(spec, t, idx)
    local tt = type(t)
    if tt == "table" then
-      local key = t[1] or NIL
+      local key = spec.indexer(t) or NIL
       local ts = idx.ts
       return ts[key] or ts[VAR]
    else
