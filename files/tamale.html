@@ -165,7 +165,7 @@ Default hook for match failure.
 
 <dt><a name="matcher"></a><strong>matcher</strong>&nbsp;(spec)</dt>
 <dd>
-Return a matcher function for a given specification. When the function is called on one or more values, its first argument is tested in order against every rule that could possibly match it, selecting the relevant result (if any) or returning the values (false, "Match failed", val). If the result is a function, it is called with a table containing any captures and any subsequent arguments passed to the matcher function (in env.args).
+Return a matcher function for a given specification. When the function is called on one or more values, its first argument is tested in order against every rule that could possibly match it, selecting the relevant result (if any) or returning the values (false, "Match failed", val). If the result is a function, it is called with a table containing any captures and any subsequent arguments passed to the matcher function (in captures.args).
 
 
 <h3>Parameters</h3>
