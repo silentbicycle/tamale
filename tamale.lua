@@ -74,7 +74,7 @@ end
 ---Default hook for match failure.
 -- @param val The unmatched value.
 function match_fail(val)
-   return false, "Match failed", val
+   return nil, "Match failed", val
 end
 
 
@@ -206,6 +206,8 @@ local function index_spec(spec)
    -- field/value to index by, defaults to t[1].
    local ispec, indexer = spec.index or 1
    if type(ispec) == "function" then indexer = ispec
+   elseif ispec == "false" then
+      indexer = function() end  --put everything in the same index
    else
       indexer = function(t) return t[ispec] end
    end
@@ -215,7 +217,7 @@ local function index_spec(spec)
       local pat, res = row[1], row[2]
       local pt = type(pat)
       if not indexable(pat) then     --could match anything
-         if debug then trace(" * row %d: not indexable, adding to all", id) end
+         if debug then trace(" * rule %d: not indexable, adding to all", id) end
          lni[#lni+1] = id; tni[#tni+1] = id --for those that don't yet exist
          for _,l in ipairs{ls, ts} do       --and append to those that do
             for k in pairs(l) do append(l, k, id) end
@@ -223,29 +225,29 @@ local function index_spec(spec)
       elseif pt == "table" then
          local v = indexer(pat) or NIL
          if not indexable(v) then    --goes in every index
-            if debug then trace(" * row %d: index(table) is not indexable", id) end
+            if debug then trace(" * rule %d: index(table) is not indexable", id) end
             for k in pairs(ts) do append(ts, k, id) end
             tni[#tni+1] = id
          else
-            if debug then trace(" * row %d: indexing on index(t)=%s",
+            if debug then trace(" * rule %d: indexing on index(t)=%s",
                                 id, tostring(v)) end
             append(ts, v, id)
          end
 
          for i,v in ipairs(pat) do --check for special V"..." var
             if is_var(v) and v.rest then
-               if debug then trace(" * row %d: V'...' found in field %d",
+               if debug then trace(" * rule %d: V'...' found in field %d",
                                    id, i) end
                row.partial = true; row.rest = i; break
             end
          end
       else
-         if debug then trace(" * row %d: indexing on %s",
+         if debug then trace(" * rule %d: indexing on %s",
                              id, tostring(pat)) end
          append(ls, pat, id)
       end
       if has_vars(res) then
-         if debug then trace(" * row %d: found var(s) in result", id) end
+         if debug then trace(" * rule %d: found var(s) in result", id) end
          vrs[id] = true
       end
    end
@@ -300,7 +302,7 @@ function matcher(spec)
    function (t, ...)
       local rows = check_index(spec, t, idx)
       if debug then
-         trace(" -- Checking rows: %s", concat(rows, ", "))
+         trace(" -- Checking rules: %s", concat(rows, ", "))
       end
 
       for _,id in ipairs(rows) do
@@ -311,14 +313,14 @@ function matcher(spec)
 
          local u = unify(pat, t, { args=args }, ids, row)
          if debug then
-            trace("-- Trying row %d...%s", id, u and "matched" or "failed")
+            trace(" -- Trying rule %d...%s", id, u and "matched" or "failed")
          end
          
          if u then
             u.input = t         --whole matched value
             if when then
                local ok, val = pcall(when, u)
-               if debug then trace("-- Running when(captures) check...%s",
+               if debug then trace(" -- Running when(captures) check...%s",
                                    (ok and val) and "matched" or "failed")
                end
                if ok and val then
@@ -329,7 +331,7 @@ function matcher(spec)
             end
          end
       end
-      if debug then trace("-- Failed") end
+      if debug then trace(" -- Failed") end
       local fail = spec.fail or match_fail
       return fail(t)
    end         

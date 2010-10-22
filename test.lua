@@ -3,23 +3,42 @@ require "lunatest"
 
 local V, P = tamale.var, tamale.P
 
-local M
 
 function setup(name)
+   local X, A, B, C, D = V"X", V"A", V"B", V"C", V"D"
    M = tamale.matcher {
       { 27, "twenty-seven" },
       { "str", "string" },
       { { 1, 2, 3},
         function(t) return "one two three" end },
       { { 1, {2, "three"}, 4}, function(t) return "success" end },
-      { { "gt3", V"X"}, function(t) return 10 * t.X end,
+      { { "gt3", X}, function(t) return 10 * t.X end,
         when=function (t) return t.X > 3 end },
-      { { V"a", V"b", V"c", V"b" }, function(t) return "ABCB" end },
-      { { "a", {"b", V"X" }, "c", V"X"},
+      { { A, B, C, B }, function(t) return "ABCB" end },
+      { { "a", {"b", X }, "c", X},
         function(t) return "X is " .. t.X end },
       { { "extract", { V"_", V"_", V"third", V"_" } },
         function(t) return t.third end }
    }
+end
+
+-- trivial example from the docs
+function test_example()
+   local V = tamale.var
+   local M = tamale.matcher {
+      { {"foo", 1, {} },  "one" },
+      { 10, function() return "two" end},
+      { {"bar", 10, 100}, "three" },
+      { {"baz", V"X" }, V"X" },
+      { {V"X", V"Y"},
+        function(cs) return cs.X + cs.Y end },
+   }
+
+   assert_equal("one", M({"foo", 1, {}}))
+   assert_equal("two", M(10))
+   assert_equal("three", M({"bar", 10, 100}))
+   assert_equal("four", M({"baz", "four"}))
+   assert_equal(5, M({2, 3}))
 end
 
 function test_m()
@@ -405,8 +424,9 @@ function test_custom_index_function()
       { {1, "b", 2}, 2},
       { {1, "c", 3}, 3},
       { {1, "d", 4}, 4},
+      --index=false,
       index=function(r) return r[1] + 3*r[3] end,
-      -- debug=true
+      --debug=true
    }
 
    assert_equal(1, m{1, "a", 1}, "a")
