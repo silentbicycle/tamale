@@ -204,7 +204,13 @@ local function index_spec(spec)
 
    local debug = spec.debug
    -- field/value to index by, defaults to t[1].
-   local ispec, indexer = spec.index or 1
+   local ispec, indexer
+   if spec.index == false then
+      ispec = false   -- false -> don't index
+   else
+      ispec = spec.index or 1
+   end
+
    if type(ispec) == "function" then indexer = ispec
    elseif ispec == "false" then
       indexer = function() end  --put everything in the same index
