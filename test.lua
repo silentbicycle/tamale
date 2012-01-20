@@ -436,5 +436,23 @@ function test_custom_index_function()
    assert_false(m{1, "b", 1})
 end
 
+function test_indexing_nested_tables_no_index()
+   local m = tamale.matcher {
+      index=false,
+      { {{"T", V"X"}}, function(c) return "ok" end},
+      { V"default", function() return "fail" end},
+   }
+   assert_equal("ok", m( {{"T", "foo"}} ))
+end
+
+function test_indexing_nested_tables_with_custom_index()
+   local m = tamale.matcher {
+      index=function(pat) return (pat[1] or {})[1] end,
+      { {{"T", V"X"}}, function(c) return "ok" end},
+      { V"default", function() return "fail" end},
+   }
+   assert_equal("ok", m( {{"T", "foo"}} ))
+end
+
 
 lunatest.run()
